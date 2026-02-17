@@ -38,3 +38,10 @@ class TimeSlotOverlapError(HTTPException):
             detail="겹치는 시간대가 이미 존재합니다."
         )
 
+
+class TimeSlotNotFoundError(HTTPException):
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="시간대가 없습니다."
+        )

@@ -47,3 +47,30 @@ async def test_if_try_to_create_reserv_to_not_host_raise404(
     }
     response = client_with_auth.post(f"/bookings/{cute_guest_user.username}", json=payload)
     assert response.status_code == status.HTTP_404_NOT_FOUND
+
+@pytest.mark.parametrize(
+    "time_slot_id_add, target_date",
+    [
+        (100, date(2024, 12, 3)),
+        (0, date(2024, 12, 4)),
+        (0, date(2024, 12, 5)),
+    ],
+)
+@pytest.mark.usefixtures("host_user_calendar")
+async def test_if_create_reserv_no_exist_time_raise404(
+    host_user: User,
+    client_with_guest_auth: TestClient,
+    time_slot_tuesday: TimeSlot,
+    time_slot_id_add: int,
+    target_date: date,
+):
+    payload = {
+        "when": target_date.isoformat(),
+        "topic": "test",
+        "description": "test",
+        "time_slot_id": time_slot_tuesday.id + time_slot_id_add,
+    }
+
+    response = client_with_guest_auth.post(f"/bookings/{host_user.username}", json=payload)
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
