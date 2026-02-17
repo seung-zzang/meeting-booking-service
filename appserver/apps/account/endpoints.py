@@ -1,0 +1,144 @@
+from datetime import datetime, timezone, timedelta
+from fastapi import APIRouter, HTTPException, status
+from fastapi.responses import JSONResponse
+from sqlmodel import select, SQLModel, func, update, delete
+from appserver.db import create_async_engine, create_session
+from appserver.apps.account.models import User
+from appserver.apps.account.exceptions import DuplicatedUsernameError, DuplicatedEmailError, PasswordMismatchError, UserNotFoundError
+from appserver.apps.account.schemas import SignupPayload, UserOut, LoginPayload, UserDetailOut, UpdateUserPayload
+from appserver.apps.account.utils import verify_password, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
+from appserver.apps.account.deps import CurrentUserDep
+from appserver.db import DbSessionDep
+from appserver.apps.account.constants import AUTH_TOKEN_COOKIE_NAME
+from sqlalchemy.exc import IntegrityError
+
+
+router = APIRouter(prefix="/account")
+
+
+@router.get("/users/{username}")
+async def user_detail(username: str, session: DbSessionDep) -> User:
+    stmt = select(User).where(User.username == username)    # (2)
+    result = await session.execute(stmt)
+    user = result.scalar_one_or_none()
+    
+    if user is not None:
+        return user
+
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+
+@router.get("/signup")
+async def signup(payload: dict, session: DbSessionDep) -> User:
+    stmt = select(func.count()).select_from(User).where(User.username == payload["username"])   # (2)
+    result = await session.execute(stmt)
+    count = result.scalar_one()
+    if count > 0:
+        raise DuplicatedUsernameError
+
+    user = User.model_validate(payload)
+    session.add(user)
+    try:
+        await session.commit()
+
+    except IntegrityError:
+        raise DuplicatedEmailError()
+
+    return user
+
+
+@router.post("/signup", status_code=status.HTTP_201_CREATED, response_model=UserOut)
+async def signup(payload: SignupPayload, session: DbSessionDep) -> User:
+    stmt = select(func.count()).select_from(User).where(User.username == payload.username)
+    result = await session.execute(stmt)
+    count = result.scalar_one()
+    if count > 0:
+        raise DuplicatedUsernameError
+
+    user = User.model_validate(payload, from_attributes=True)
+    session.add(user)
+    try:
+        await session.commit()
+
+    except IntegrityError:
+        raise DuplicatedEmailError()
+
+    return user
+
+
+@router.post("/login", status_code=status.HTTP_200_OK)
+async def login(payload: LoginPayload, session: DbSessionDep) -> User:
+    stmt = select(User).where(User.username == payload.username)
+    result = await session.execute(stmt)
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        raise UserNotFoundError()
+
+    is_valid = verify_password(payload.password, user.hashed_password)
+    if not is_valid:
+        raise PasswordMismatchError()
+
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={
+            "sub": user.username,
+            "display_name": user.display_name,
+            "is_host": user.is_host,
+        },
+        expires_delta=access_token_expires
+    )
+
+    response_data = {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": user.model_dump(mode="json", exclude={"hashed_password", "email"})
+    }
+
+    now = datetime.now(timezone.utc)
+
+    res = JSONResponse(response_data, status_code=status.HTTP_200_OK)
+    res.set_cookie(
+        key=AUTH_TOKEN_COOKIE_NAME,
+        value=access_token,
+        expires=now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+        httponly=True,
+        secure=True,
+        samesite="strict"
+    )
+
+    return res
+
+
+@router.get("/@me", response_model=UserDetailOut)
+async def me(user: CurrentUserDep) -> User:
+    return user
+
+
+@router.patch("/@me", response_model=UserDetailOut)
+async def update_user(
+    user: CurrentUserDep,
+    payload: UpdateUserPayload,
+    session: DbSessionDep
+) -> User:
+    updated_data = payload.model_dump(exclude_none=True, exclude={"password", "password_again"})
+
+    stmt = update(User).where(User.username == user.username).values(**updated_data)
+    await session.execute(stmt)
+    await session.commit()
+    return user
+
+
+@router.delete("/logout", status_code=status.HTTP_200_OK)
+async def logout(user: CurrentUserDep) -> JSONResponse:
+    res = JSONResponse({})
+    res.delete_cookie(AUTH_TOKEN_COOKIE_NAME)
+    return res
+
+
+@router.delete("/unregister", status_code=status.HTTP_204_NO_CONTENT)
+async def unregister(user: CurrentUserDep, session: DbSessionDep) -> None:
+    stmt = delete(User).where(User.username == user.username)
+    await session.execute(stmt)
+    await session.commit()
+    return None

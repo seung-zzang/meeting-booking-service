@@ -1,0 +1,15 @@
+# virtual env
+.venv/
+
+# python cache
+__pycache__/
+*.pyc
+
+# pytest
+.pytest_cache/
+
+# local files
+local.db
+
+# editor
+.vscode/
