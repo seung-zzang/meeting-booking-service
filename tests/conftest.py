@@ -222,7 +222,7 @@ async def host_bookings(
             when=when,
             topic="test",
             description="test",
-            time_slot_id=time-time_slot_tuesday.id,
+            time_slot_id=time_slot_tuesday.id,
             guest_id=guest_user.id,
         )
         db_session.add(booking)
