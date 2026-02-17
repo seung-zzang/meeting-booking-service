@@ -3,7 +3,7 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 from appserver.apps.account.models import User
-from appserver.apps.calendar.models import TimeSlot
+from appserver.apps.calendar.models import TimeSlot, Booking
 
 
 @pytest.mark.usefixtures("host_user_calendar")
@@ -74,3 +74,15 @@ async def test_if_create_reserv_no_exist_time_raise404(
     response = client_with_guest_auth.post(f"/bookings/{host_user.username}", json=payload)
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.usefixtures("charming_host_bookings")
+async def test_host_receive_reserv_list_by_page(
+    client_with_auth: TestClient,
+    host_bookings: list[Booking],
+):
+    response = client_with_auth.get("/bookings", params={"page":1, "page_size":10})
+
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert len(data) == len(host_bookings)
