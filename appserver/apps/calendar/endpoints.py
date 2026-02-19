@@ -237,3 +237,27 @@ async def host_calendar_bookings(
     )
     result = await session.execute(stmt)
     return result.scalars().all()
+
+
+@router.get(
+    "/guest-calendar/bookings",
+    status_code=status.HTTP_200_OK,
+    response_model=list[BookingOut],
+)
+async def guest_calendar_bookings(
+    user: CurrentUserDep,
+    session: DbSessionDep,
+    page: Annotated[int, Query(ge=1, le=50)],
+    page_size: Annotated[int, Query(ge=1, le=50)],
+) -> list[BookingOut]:
+    stmt = (
+        select(Booking)
+        .where(Booking.guest_id == user.id)
+        .order_by(Booking.when.desc(), Booking.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    result = await session.execute(stmt)
+    return result.scalar().all()
+
+    

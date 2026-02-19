@@ -118,3 +118,19 @@ async def test_guest_receive_reserv_list_by_month(
     assert not not data
     assert len(data) == len(booking_dates)
     assert all([item["when"] in booking_dates for item in data])
+
+
+async def test_guest_receive_reserv_list_by_page(
+    client_with_guest_auth: TestClient,
+    host_bookings: list[Booking],
+    charming_host_bookings: list[Booking]
+):
+    response = client_with_guest_auth.get("/guest-calendar/bookings", params={"page":1, "page_size":50})
+
+    assert response.status_code == status.HTTP_200_OK
+
+    id_set = frozenset([booking.id for booking in host_bookings] + [booking.id for booking in charming_host_bookings])
+
+    data = response.json()
+    assert len(data) == len(id_set)
+    assert all([item['id'] in id_set for item in data])
