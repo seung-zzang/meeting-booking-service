@@ -301,3 +301,19 @@ async def time_slot_monday(
     db_session.add(time_slot)
     await db_session.commit()
     return time_slot
+
+
+@pytest.fixture()
+async def time_slot_friday(
+    db_session: AsyncSession,
+    charming_host_user_calendar: calendar_models.Calendar,
+):
+    time_slot = calendar_models.TimeSlot(
+        start_time = time(10, 0),
+        end_time = time(11, 0),
+        weekdays = [calendar.FRIDAY],
+        calendar_id = charming_host_user_calendar.id,
+    )
+    db_session.add(time_slot)
+    await db_session.commit()
+    return time_slot

@@ -86,3 +86,10 @@ class SimpleBookingOut(SQLModel):
 class HostBookingUpdatedIn(SQLModel):
     when: date | None = Field(default=None, description="예약 일자")
     time_slot_id: int | None = Field(default=None, description="타임슬롯 ID")
+
+
+class GuestBookingUpdateIn(SQLModel):
+    topic: str | None = Field(default=None, description="예약 주제")
+    description: str | None = Field(default=None, description="에약 설명")
+    when: date | None = Field(default=None, description="예약 일자")
+    time_slot_id: int | None = Field(default=None, description="타임슬롯 ID")
