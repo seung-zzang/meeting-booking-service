@@ -4,6 +4,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from appserver.apps.account.models import User
 from appserver.apps.calendar.models import TimeSlot, Booking
+from pytest_lazy_fixtures import lf
 
 
 @pytest.mark.usefixtures("host_user_calendar")
@@ -134,3 +135,40 @@ async def test_guest_receive_reserv_list_by_page(
     data = response.json()
     assert len(data) == len(id_set)
     assert all([item['id'] in id_set for item in data])
+
+
+async def test_user_receive_specific_reserv_data(
+    host_bookings: list[Booking],
+    client_with_guest_auth: TestClient,
+    client_with_smart_guest_auth: TestClient,
+):
+    response = client_with_smart_guest_auth.get(f"/bookings/{host_bookings[0].id}")
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    response = client_with_guest_auth.get(f"/bookings/{host_bookings[0].id}")
+
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["id"] == host_bookings[0].id
+
+
+@pytest.mark.parametrize(
+    "client, expected_status_code",
+    [
+        (lf("client_with_guest_auth"), status.HTTP_200_OK),
+        (lf("client_with_smart_guest_auth"), status.HTTP_404_NOT_FOUND),
+    ],
+)
+async def test_user_receive_specific_reserv_data_final(
+    host_bookings: list[Booking],
+    client: TestClient,
+    expected_status_code: int,
+):
+    response = client.get(f"/bookings/{host_bookings[0].id}")
+
+    assert response.status_code == expected_status_code
+
+    data = response.json()
+    if expected_status_code == status.HTTP_200_OK:
+        assert data["id"] == host_bookings[0].id

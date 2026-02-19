@@ -1,4 +1,4 @@
-from fastapi import APIRouter, status, Query
+from fastapi import APIRouter, status, Query, HTTPException
 from sqlmodel import select, and_, func, true, extract
 from sqlalchemy.exc import IntegrityError
 from appserver.apps.account.models import User
@@ -260,3 +260,29 @@ async def guest_calendar_bookings(
     result = await session.execute(stmt)
     return result.scalars().all()
 
+
+@router.get(
+    "/bookings/{booking_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=BookingOut,
+)
+async def get_booking_by_id(
+    user: CurrentUserDep,
+    session: DbSessionDep,
+    booking_id: int
+) -> BookingOut:
+    stmt = select(Booking).where(Booking.id == booking_id)
+    if user.is_host and user.calendar is not None:
+        stmt = (
+            stmt
+            .join(Booking.time_slot)
+            .where((TimeSlot.calendar_id == user.calendar.id) | (Booking.guest_id == user.id))
+        )
+    else:
+        stmt = stmt.where(Booking.guest_id == user.id)
+    
+    result = await session.execute(stmt)
+    booking = result.scalar_one_or_none()
+    if booking is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="예약 내역이 없습니다.")
+    return booking
