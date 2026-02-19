@@ -258,6 +258,5 @@ async def guest_calendar_bookings(
         .limit(page_size)
     )
     result = await session.execute(stmt)
-    return result.scalar().all()
+    return result.scalars().all()
 
-    
