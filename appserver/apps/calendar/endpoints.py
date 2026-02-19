@@ -5,7 +5,7 @@ from appserver.apps.account.models import User
 from appserver.apps.calendar.models import Calendar, TimeSlot, Booking
 from appserver.db import DbSessionDep
 from appserver.apps.account.deps import CurrentUserOptionalDep, CurrentUserDep
-from appserver.apps.calendar.schemas import CalendarDetailOut, CalendarOut, CalendarCreateIn, CalendarUpdateIn, TimeSlotCreateIn, TimeSlotOut, BookingCreateIn, BookingOut, SimpleBookingOut
+from appserver.apps.calendar.schemas import CalendarDetailOut, CalendarOut, CalendarCreateIn, CalendarUpdateIn, TimeSlotCreateIn, TimeSlotOut, BookingCreateIn, BookingOut, SimpleBookingOut, HostBookingUpdatedIn
 from appserver.apps.calendar.exceptions import CalendarNotFoundError, HostNotFoundError, CalendarAlreadyExistsError, GuestPermissionError, TimeSlotOverlapError, TimeSlotNotFoundError
 from datetime import datetime, timezone
 from typing import Annotated
@@ -285,4 +285,47 @@ async def get_booking_by_id(
     booking = result.scalar_one_or_none()
     if booking is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="예약 내역이 없습니다.")
+    return booking
+
+
+@router.patch(
+    "/bookings/{booking_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=BookingOut,
+)
+async def host_update_booking(
+    user: CurrentUserDep,
+    session: DbSessionDep,
+    booking_id: int,
+    payload: HostBookingUpdatedIn
+) -> BookingOut:
+    if not user.is_host or user.calendar is None:
+        raise HostNotFoundError()
+
+    stmt = (
+        select(Booking)
+        .join(Booking.time_slot)
+        .where(Booking.id == booking_id)
+        .where(TimeSlot.calendar_id == user.calendar.id)
+    )
+    result = await session.execute(stmt)
+    booking = result.scalar_one_or_none()
+    if booking is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="예약 내역이 없습니다.")
+
+    if payload.when is not None:
+        booking.when = payload.when
+    if payload.time_slot_id is not None:
+        stmt = (
+            select(TimeSlot)
+            .where(TimeSlot.id == payload.time_slot_id)
+            .where(TimeSlot.calendar_id == user.calendar.id)
+        )
+        result = await session.execute(stmt)
+        time_slot = result.scalar_one_or_none()
+        if time_slot is None:
+            raise TimeSlotNotFoundError()
+        booking.time_slot_id =time_slot.id
+    await session.commit()
+    await session.refresh(booking)
     return booking

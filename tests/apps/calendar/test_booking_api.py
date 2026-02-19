@@ -172,3 +172,32 @@ async def test_user_receive_specific_reserv_data_final(
     data = response.json()
     if expected_status_code == status.HTTP_200_OK:
         assert data["id"] == host_bookings[0].id
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"when": "2025-01-01", "time_slot": lf("time_slot_tuesday")},
+        {"when": "2025-01-02", "time_slot": lf("time_slot_monday")},
+    ],
+)
+@pytest.mark.usefixtures("host_user_calendar")
+async def test_host_can_change_their_timeslot_that_booked_them(
+    payload: dict,
+    client_with_auth: TestClient,
+    host_bookings: list[Booking],
+):
+    hooking = host_bookings[0]
+    time_slot: TimeSlot = payload["time_slot"]
+    payload["time_slot_id"] = time_slot.id
+    del payload["time_slot"]
+
+    response = client_with_auth.patch(f"/bookings/{hooking.id}", json=payload)
+
+    assert response.status_code == status.HTTP_200_OK
+
+    data = response.json()
+    assert data["when"] == payload["when"]
+    assert data["time_slot"]["start_time"] == time_slot.start_time.isoformat()
+    assert data["time_slot"]["end_time"] == time_slot.end_time.isoformat()
+    assert data["time_slot"]["weekdays"] == time_slot.weekdays
