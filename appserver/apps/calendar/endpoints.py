@@ -5,6 +5,7 @@ from appserver.apps.account.models import User
 from appserver.apps.calendar.models import Calendar, TimeSlot, Booking
 from appserver.db import DbSessionDep
 from appserver.apps.account.deps import CurrentUserOptionalDep, CurrentUserDep
+from appserver.apps.calendar.deps import UtcNow
 from appserver.apps.calendar.schemas import CalendarDetailOut, CalendarOut, CalendarCreateIn, CalendarUpdateIn, TimeSlotCreateIn, TimeSlotOut, BookingCreateIn, BookingOut, SimpleBookingOut, HostBookingUpdatedIn, GuestBookingUpdateIn, HostBookingStatusUpdateIn
 from appserver.apps.calendar.exceptions import CalendarNotFoundError, HostNotFoundError, CalendarAlreadyExistsError, GuestPermissionError, TimeSlotOverlapError, TimeSlotNotFoundError
 from datetime import datetime, timezone
@@ -375,3 +376,36 @@ async def guest_update_booking(
     return booking
 
 
+@router.patch(
+    "/bookings/{booking_id}/status",
+    status_code = status.HTTP_200_OK,
+    response_model = BookingOut,
+)
+async def update_booking_status(
+    user: CurrentUserDep,
+    session: DbSessionDep,
+    booking_id: int,
+    payload: HostBookingStatusUpdateIn,
+    now: UtcNow
+) -> BookingOut:
+    if not user.is_host or user.calendar is None:
+        raise HostNotFoundError()
+
+    stmt = (
+        select(Booking)
+        .join(Booking.time_slot)
+        .where(Booking.id == booking_id)
+        .where(TimeSlot.calendar_id == user.calendar.id)
+    )
+    result = await session.execute(stmt)
+    booking = result.scalar_one_or_none()
+    if booking is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="예약 내역이 없습니다.")
+
+    if booking.when < now.date():
+        raise PastBookingError()
+
+    booking.attendance_status = payload.attendance_status
+    await session.commit()
+    await session.refresh(booking)
+    return booking

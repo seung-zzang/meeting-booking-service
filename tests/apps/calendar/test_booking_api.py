@@ -308,31 +308,31 @@ async def test_guest_can_change_their_booking_info(
             assert before_booking[field_name] == data[field_name]
 
 
-# @pytest.mark.parametrize(
-#     "attendance_status",
-#     [
-#         (AttendanceStatus.SCHEDULED),
-#         (AttendanceStatus.ATTENDED),
-#         (AttendanceStatus.NO_SHOW),
-#         (AttendanceStatus.CANCELLED),
-#         (AttendanceStatus.SAME_DAY_CANCEL),
-#         (AttendanceStatus.LATE),
-#     ],
-# )
-# async def test_host_can_change_booking_attendance_status_that_applied_to_them(
-#     client_with_auth: TestClient,
-#     host_bookings: list[Booking],
-#     attendance_status: AttendanceStatus,
-# ):
-#     payload = {
-#         "attendance_status": attendance_status
-#     }
-#     booking = host_bookings[-1]
-#     response = client_with_auth.patch(f"/bookings/{booking.id}/status", json=payload)
+@pytest.mark.parametrize(
+    "attendance_status",
+    [
+        (AttendanceStatus.SCHEDULED),
+        (AttendanceStatus.ATTENDED),
+        (AttendanceStatus.NO_SHOW),
+        (AttendanceStatus.CANCELLED),
+        (AttendanceStatus.SAME_DAY_CANCEL),
+        (AttendanceStatus.LATE),
+    ],
+)
+async def test_host_can_change_booking_attendance_status_that_applied_to_them(
+    client_with_auth: TestClient,
+    host_bookings: list[Booking],
+    attendance_status: AttendanceStatus,
+):
+    payload = {
+        "attendance_status": attendance_status
+    }
+    booking = host_bookings[-1]
+    response = client_with_auth.patch(f"/bookings/{booking.id}/status", json=payload)
 
-#     assert response.status_code == status.HTTP_200_OK
+    assert response.status_code == status.HTTP_200_OK
 
-#     response = client_with_auth.get(f"/bookings/{booking.id}")
-#     assert response.status_code == status.HTTP_200_OK
-#     data = response.json()
-#     assert data["attendance_status"] == attendance_status.value
+    response = client_with_auth.get(f"/bookings/{booking.id}")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["attendance_status"] == attendance_status.value

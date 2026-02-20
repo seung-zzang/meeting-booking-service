@@ -80,6 +80,10 @@ class BookingOut(SQLModel):
     updated_at: AwareDatetime
 
 
+class HostBookingStatusUpdateIn(SQLModel):
+    attendance_status: AttendanceStatus
+
+
 class SimpleBookingOut(SQLModel):
     when: date
     time_slot: TimeSlotOut
@@ -88,10 +92,6 @@ class SimpleBookingOut(SQLModel):
 class HostBookingUpdatedIn(SQLModel):
     when: date | None = Field(default=None, description="예약 일자")
     time_slot_id: int | None = Field(default=None, description="타임슬롯 ID")
-
-
-class HostBookingStatusUpdateIn(SQLModel):
-    attendance_status: AttendanceStatus
 
 
 class GuestBookingUpdateIn(SQLModel):
