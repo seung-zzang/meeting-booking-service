@@ -5,7 +5,7 @@ from appserver.apps.account.models import User
 from appserver.apps.calendar.models import Calendar, TimeSlot, Booking
 from appserver.db import DbSessionDep
 from appserver.apps.account.deps import CurrentUserOptionalDep, CurrentUserDep
-from appserver.apps.calendar.schemas import CalendarDetailOut, CalendarOut, CalendarCreateIn, CalendarUpdateIn, TimeSlotCreateIn, TimeSlotOut, BookingCreateIn, BookingOut, SimpleBookingOut, HostBookingUpdatedIn, GuestBookingUpdateIn
+from appserver.apps.calendar.schemas import CalendarDetailOut, CalendarOut, CalendarCreateIn, CalendarUpdateIn, TimeSlotCreateIn, TimeSlotOut, BookingCreateIn, BookingOut, SimpleBookingOut, HostBookingUpdatedIn, GuestBookingUpdateIn, HostBookingStatusUpdateIn
 from appserver.apps.calendar.exceptions import CalendarNotFoundError, HostNotFoundError, CalendarAlreadyExistsError, GuestPermissionError, TimeSlotOverlapError, TimeSlotNotFoundError
 from datetime import datetime, timezone
 from typing import Annotated
@@ -373,3 +373,5 @@ async def guest_update_booking(
     await session.commit()
     await session.refresh(booking)
     return booking
+
+

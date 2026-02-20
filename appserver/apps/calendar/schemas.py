@@ -2,6 +2,7 @@ from typing import Annotated
 from pydantic import AwareDatetime, EmailStr, AfterValidator, model_validator
 from sqlmodel import SQLModel, Field
 from appserver.libs.collections.sort import deduplicate_and_sort
+from appserver.apps.calendar.enums import AttendanceStatus
 from datetime import time, date
 
 
@@ -74,6 +75,7 @@ class BookingOut(SQLModel):
     topic: str
     description: str
     time_slot: TimeSlotOut
+    attendance_status: AttendanceStatus
     created_at: AwareDatetime
     updated_at: AwareDatetime
 
@@ -86,6 +88,10 @@ class SimpleBookingOut(SQLModel):
 class HostBookingUpdatedIn(SQLModel):
     when: date | None = Field(default=None, description="예약 일자")
     time_slot_id: int | None = Field(default=None, description="타임슬롯 ID")
+
+
+class HostBookingStatusUpdateIn(SQLModel):
+    attendance_status: AttendanceStatus
 
 
 class GuestBookingUpdateIn(SQLModel):

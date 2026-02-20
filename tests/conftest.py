@@ -11,6 +11,7 @@ from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import time, date
+from appserver.libs.datetime.datetime import utcnow
 
 
 
@@ -40,7 +41,11 @@ def fastapi_app(db_session: AsyncSession):
     async def override_use_session():
         yield db_session
 
+    def override_utcnow():
+        return utcnow().replace(year=2024, month=12, day=5)
+
     app.dependency_overrides[use_session] = override_use_session
+    app.dependency_overrides[utcnow] = override_utcnow
     return app
 
 @pytest.fixture()
@@ -317,3 +322,5 @@ async def time_slot_friday(
     db_session.add(time_slot)
     await db_session.commit()
     return time_slot
+
+
