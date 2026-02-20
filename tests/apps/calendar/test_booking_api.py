@@ -336,3 +336,29 @@ async def test_host_can_change_booking_attendance_status_that_applied_to_them(
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert data["attendance_status"] == attendance_status.value
+
+
+async def test_guest_can_upload_file_in_their_booking(
+    client_with_guest_auth: TestClient,
+    host_bookings: list[Booking],
+):
+    booking = host_bookings[-1]
+
+    # 업로드 할 임시 파일 생성
+    file_content_1 = b'File content 1'
+    file_content_2 = b'File content 2'
+    file_content_3 = b'File content 3'
+
+    files = [
+        ("files", ("file1.txt", file_content_1, "text/plain")),
+        ("files", ("file2.txt", file_content_2, "text/plain")),
+        ("files", ("file3.txt", file_content_3, "text/plain"))
+    ]
+
+    response = client_with_guest_auth.post(f"/bookings/{booking.id}/upload", files=files)
+
+    assert response.status_code == status.HTTP_201_CREATED
+
+    data = response.json()
+    assert len(data) == 3
+    assert data == ["file1.txt", "file2.txt", "file3.txt"]

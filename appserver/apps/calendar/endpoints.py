@@ -1,4 +1,4 @@
-from fastapi import APIRouter, status, Query, HTTPException
+from fastapi import APIRouter, status, Query, HTTPException, UploadFile, File
 from sqlmodel import select, and_, func, true, extract
 from sqlalchemy.exc import IntegrityError
 from appserver.apps.account.models import User
@@ -409,3 +409,18 @@ async def update_booking_status(
     await session.commit()
     await session.refresh(booking)
     return booking
+
+
+@router.post(
+    "/bookings/{booking_id}/upload",
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_booking_files(
+    booking_id: int,
+    files: Annotated[list[UploadFile], File(min_length=1, max_length=3)],
+):
+    result = []
+    for file in files:
+        result.append(file.filename)
+    return result
+
