@@ -130,7 +130,7 @@ async def test_guest_receive_reserv_list_by_page(
     host_bookings: list[Booking],
     charming_host_bookings: list[Booking]
 ):
-    response = client_with_guest_auth.get("/guest-calendar/bookings", params={"page":1, "page_size":50})
+    response = client_with_guest_auth.get("/guest_calendar/bookings", params={"page":1, "page_size":50})
 
     assert response.status_code == status.HTTP_200_OK
 
@@ -241,7 +241,7 @@ async def test_guest_cannot_change_another_hosts_timeslot(
     expected_status_code: int,
 ):
     response = client_with_guest_auth.patch(
-        f"/guest-bookings/{host_bookings[0].id}",
+        f"/guest_bookings/{host_bookings[0].id}",
         json={"time_slot_id": time_slot.id}
     )
     assert response.status_code == expected_status_code
@@ -282,7 +282,7 @@ async def test_guest_can_change_their_booking_info(
 
     # 요청 보내기
     response = client_with_guest_auth.patch(
-        f"/guest-bookings/{booking.id}",
+        f"/guest_bookings/{booking.id}",
         json=payload
     )
 

@@ -209,7 +209,7 @@ async def get_host_bookings_by_month(
         .limit(page_size)
     )
     result = await session.execute(stmt)
-    return result.scalars().all()
+    return result.unique().scalars().all()
 
 
 @router.get(
@@ -237,11 +237,11 @@ async def host_calendar_bookings(
         .order_by(Booking.when.desc())
     )
     result = await session.execute(stmt)
-    return result.scalars().all()
+    return result.unique().scalars().all()  # unique() 메서드 호출
 
 
 @router.get(
-    "/guest-calendar/bookings",
+    "/guest_calendar/bookings",
     status_code=status.HTTP_200_OK,
     response_model=list[BookingOut],
 )
@@ -259,7 +259,7 @@ async def guest_calendar_bookings(
         .limit(page_size)
     )
     result = await session.execute(stmt)
-    return result.scalars().all()
+    return result.unique().scalars().all()
 
 
 @router.get(
@@ -283,7 +283,7 @@ async def get_booking_by_id(
         stmt = stmt.where(Booking.guest_id == user.id)
     
     result = await session.execute(stmt)
-    booking = result.scalar_one_or_none()
+    booking = result.unique().scalar_one_or_none()
     if booking is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="예약 내역이 없습니다.")
     return booking
@@ -310,7 +310,7 @@ async def host_update_booking(
         .where(TimeSlot.calendar_id == user.calendar.id)
     )
     result = await session.execute(stmt)
-    booking = result.scalar_one_or_none()
+    booking = result.unique().scalar_one_or_none()
     if booking is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="예약 내역이 없습니다.")
 
@@ -333,7 +333,7 @@ async def host_update_booking(
 
 
 @router.patch(
-    "/guest-bookings/{booking_id}",
+    "/guest_bookings/{booking_id}",
     status_code=status.HTTP_200_OK,
     response_model=BookingOut,
 )
@@ -349,7 +349,7 @@ async def guest_update_booking(
         .where(Booking.guest_id == user.id)
     )
     result = await session.execute(stmt)
-    booking = result.scalar_one_or_none()
+    booking = result.unique().scalar_one_or_none()
     if booking is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="예약 내역이 없습니다.")
 
@@ -398,7 +398,7 @@ async def update_booking_status(
         .where(TimeSlot.calendar_id == user.calendar.id)
     )
     result = await session.execute(stmt)
-    booking = result.scalar_one_or_none()
+    booking = result.unique().scalar_one_or_none()
     if booking is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="예약 내역이 없습니다.")
 
@@ -429,7 +429,7 @@ async def upload_booking_files(
         .where(Booking.guest_id == user.id)
     )
     result = await session.execute(stmt)
-    booking = result.scalar_one_or_none()
+    booking = result.unique().scalar_one_or_none()
     if booking is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="예약 내역이 없습니다.")
 
