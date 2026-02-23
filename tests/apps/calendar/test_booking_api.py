@@ -1,3 +1,4 @@
+import os
 from datetime import date
 import pytest
 from fastapi import status
@@ -360,5 +361,8 @@ async def test_guest_can_upload_file_in_their_booking(
     assert response.status_code == status.HTTP_201_CREATED
 
     data = response.json()
-    assert len(data) == 3
-    assert data == ["file1.txt", "file2.txt", "file3.txt"]
+    assert len(data['files']) == 3
+    # assert data == ["file1.txt", "file2.txt", "file3.txt"]
+
+    file_names = [file_name["file"].split(os.sep)[-1] for file_name in data["files"]]
+    assert file_names == ["file1.txt", "file2.txt", "file3.txt"]

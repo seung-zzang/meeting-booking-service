@@ -3,11 +3,16 @@ from typing import TYPE_CHECKING
 from pydantic import AwareDatetime
 from sqlalchemy_utc import UtcDateTime
 from sqlmodel import SQLModel, Field, Relationship, Text, JSON, func, String, Column
+from sqlmodel.main import SQLModelConfig
 from sqlalchemy.dialects.postgresql import JSONB
 from appserver.apps.calendar.enums import AttendanceStatus
+from fastapi_storages import FileSystemStorage, StorageFile
+from fastapi_storages.integrations.sqlalchemy import FileType
+
 
 if TYPE_CHECKING:
     from appserver.apps.account.models import User
+
 
 class Calendar(SQLModel, table=True):
     __tablename__ = "calendars"
@@ -104,6 +109,8 @@ class Booking(SQLModel, table=True):
     guest_id: int = Field(foreign_key="users.id")
     guest: "User" = Relationship(back_populates="bookings")
 
+    files: list["BookingFile"] = Relationship(back_populates="booking")
+
     created_at: AwareDatetime = Field(
 
         default=None,
@@ -123,3 +130,22 @@ class Booking(SQLModel, table=True):
             "onupdate": lambda: datetime.now(timezone.utc),
         },
     )
+
+
+class BookingFile(SQLModel, table=True):
+    __tablename__ = "booking_files"
+
+    id: int = Field(default=None, primary_key=True)
+    booking_id: int = Field(foreign_key="bookings.id")
+    booking: Booking = Relationship(back_populates="files")
+    file: StorageFile = Field(
+        exclude=True,
+        sa_column=Column(
+            FileType(storage=FileSystemStorage(path="uploads/bookings")),
+            nullable=False
+        ),
+    )
+    model_config = SQLModelConfig(
+        arbitrary_types_allowed=True,
+    )
+

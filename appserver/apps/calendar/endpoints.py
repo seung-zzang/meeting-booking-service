@@ -2,7 +2,7 @@ from fastapi import APIRouter, status, Query, HTTPException, UploadFile, File
 from sqlmodel import select, and_, func, true, extract
 from sqlalchemy.exc import IntegrityError
 from appserver.apps.account.models import User
-from appserver.apps.calendar.models import Calendar, TimeSlot, Booking
+from appserver.apps.calendar.models import Calendar, TimeSlot, Booking, BookingFile
 from appserver.db import DbSessionDep
 from appserver.apps.account.deps import CurrentUserOptionalDep, CurrentUserDep
 from appserver.apps.calendar.deps import UtcNow
@@ -414,13 +414,30 @@ async def update_booking_status(
 @router.post(
     "/bookings/{booking_id}/upload",
     status_code=status.HTTP_201_CREATED,
+    response_model=BookingOut,
 )
 async def upload_booking_files(
+    user: CurrentUserDep,
     booking_id: int,
     files: Annotated[list[UploadFile], File(min_length=1, max_length=3)],
-):
-    result = []
+    session: DbSessionDep,
+    now: UtcNow,
+) -> BookingOut:
+    stmt = (
+        select(Booking)
+        .where(Booking.id == booking_id)
+        .where(Booking.guest_id == user.id)
+    )
+    result = await session.execute(stmt)
+    booking = result.scalar_one_or_none()
+    if booking is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="예약 내역이 없습니다.")
+
     for file in files:
-        result.append(file.filename)
-    return result
+        session.add(BookingFile(booking_id=booking.id, file=file))
+
+    await session.commit()
+    await session.refresh(booking, ["files"])
+
+    return booking
 
