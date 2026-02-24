@@ -1,7 +1,7 @@
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import JSONResponse
-from sqlmodel import select, SQLModel, func, update, delete
+from sqlmodel import select, SQLModel, func, update, delete, true
 from appserver.db import create_async_engine, create_session
 from appserver.apps.account.models import User
 from appserver.apps.account.exceptions import DuplicatedUsernameError, DuplicatedEmailError, PasswordMismatchError, UserNotFoundError
@@ -142,3 +142,17 @@ async def unregister(user: CurrentUserDep, session: DbSessionDep) -> None:
     await session.execute(stmt)
     await session.commit()
     return None
+
+
+@router.get(
+    "/hosts",
+    status_code=status.HTTP_200_OK,
+    response_model=list[UserOut]
+)
+async def get_hosts(
+    user: CurrentUserDep,
+    session: DbSessionDep,
+) -> list[User]:
+    stmt = select(User).where(User.is_active.is_(true())).where(User.is_host.is_(true()))
+    result = await session.execute(stmt)
+    return result.scalar().all()

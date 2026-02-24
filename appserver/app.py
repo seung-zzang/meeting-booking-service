@@ -1,11 +1,12 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from appserver.apps.account.endpoints import router as account_router
 from appserver.apps.calendar.endpoints import router as calendar_router
-from sqladmin import Admin
-from appserver.db import engine
-from sqlalchemy.ext.asyncio import AsyncEngine
-from appserver.admin import include_admin_views
+# from sqladmin import Admin
+# from appserver.db import engine
+# from sqlalchemy.ext.asyncio import AsyncEngine
+# from appserver.admin import include_admin_views
 
 
 app = FastAPI()
@@ -28,3 +29,15 @@ include_routers(app)
 
 # admin = init_admin(app, engine)
 # include_admin_views(admin)
+
+
+def init_middleware(_app: FastAPI):
+    _app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"]
+    )
+
+init_middleware(app)
