@@ -1,50 +1,34 @@
-from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import JSONResponse
-from sqlmodel import select, SQLModel, func, update, delete, true
-from appserver.db import create_async_engine, create_session
-from appserver.apps.account.models import User
-from appserver.apps.account.exceptions import DuplicatedUsernameError, DuplicatedEmailError, PasswordMismatchError, UserNotFoundError
-from appserver.apps.account.schemas import SignupPayload, UserOut, LoginPayload, UserDetailOut, UpdateUserPayload
-from appserver.apps.account.utils import verify_password, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
-from appserver.apps.account.deps import CurrentUserDep
-from appserver.db import DbSessionDep
-from appserver.apps.account.constants import AUTH_TOKEN_COOKIE_NAME
+from sqlmodel import select, func, update, delete, true
 from sqlalchemy.exc import IntegrityError
+from datetime import datetime, timedelta, timezone
 
+from appserver.db import DbSessionDep
+from .models import User
+from .exceptions import DuplicatedUsernameError, DuplicatedEmailError, PasswordMismatchError, UserNotFoundError
+from .schemas import LoginPayload, SignupPayload, UpdateUserPayload, UserDetailOut, UserOut
+from .utils import (
+    verify_password, 
+    create_access_token, 
+    ACCESS_TOKEN_EXPIRE_MINUTES
+)
+from .deps import CurrentUserDep
+from .constants import AUTH_TOKEN_COOKIE_NAME
 
 router = APIRouter(prefix="/account")
 
 
 @router.get("/users/{username}")
 async def user_detail(username: str, session: DbSessionDep) -> User:
-    stmt = select(User).where(User.username == username)    # (2)
+    stmt = select(User).where(User.username == username)
     result = await session.execute(stmt)
     user = result.scalar_one_or_none()
-    
+
     if user is not None:
         return user
 
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-
-
-@router.get("/signup")
-async def signup(payload: dict, session: DbSessionDep) -> User:
-    stmt = select(func.count()).select_from(User).where(User.username == payload["username"])   # (2)
-    result = await session.execute(stmt)
-    count = result.scalar_one()
-    if count > 0:
-        raise DuplicatedUsernameError
-
-    user = User.model_validate(payload)
-    session.add(user)
-    try:
-        await session.commit()
-
-    except IntegrityError:
-        raise DuplicatedEmailError()
-
-    return user
 
 
 @router.post("/signup", status_code=status.HTTP_201_CREATED, response_model=UserOut)
@@ -53,21 +37,20 @@ async def signup(payload: SignupPayload, session: DbSessionDep) -> User:
     result = await session.execute(stmt)
     count = result.scalar_one()
     if count > 0:
-        raise DuplicatedUsernameError
+        raise DuplicatedUsernameError()
 
     user = User.model_validate(payload, from_attributes=True)
+
     session.add(user)
     try:
         await session.commit()
-
     except IntegrityError:
         raise DuplicatedEmailError()
-
     return user
 
 
 @router.post("/login", status_code=status.HTTP_200_OK)
-async def login(payload: LoginPayload, session: DbSessionDep) -> User:
+async def login(payload: LoginPayload, session: DbSessionDep) -> JSONResponse:
     stmt = select(User).where(User.username == payload.username)
     result = await session.execute(stmt)
     user = result.scalar_one_or_none()
@@ -90,11 +73,6 @@ async def login(payload: LoginPayload, session: DbSessionDep) -> User:
     )
 
     response_data = {
-        # 프론트(React)용
-        "accessToken": access_token,
-
-        # SQLAdmin / 기존 코드용 (유지)
-    
         "access_token": access_token,
         "token_type": "bearer",
         "user": user.model_dump(mode="json", exclude={"hashed_password", "email"})
@@ -108,12 +86,9 @@ async def login(payload: LoginPayload, session: DbSessionDep) -> User:
         value=access_token,
         expires=now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
         httponly=True,
-        # secure=True,
-        secure=False,
-        # samesite="strict",
-        samesite="lax"
+        secure=True,
+        samesite="strict"
     )
-
     return res
 
 
@@ -154,7 +129,7 @@ async def unregister(user: CurrentUserDep, session: DbSessionDep) -> None:
 @router.get(
     "/hosts",
     status_code=status.HTTP_200_OK,
-    response_model=list[UserOut]
+    response_model=list[UserOut],
 )
 async def get_hosts(
     user: CurrentUserDep,
@@ -162,4 +137,4 @@ async def get_hosts(
 ) -> list[User]:
     stmt = select(User).where(User.is_active.is_(true())).where(User.is_host.is_(true()))
     result = await session.execute(stmt)
-    return result.scalar().all()
+    return result.scalars().all()

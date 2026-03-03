@@ -1,13 +1,15 @@
 from typing import Annotated
 from datetime import datetime, timezone, timedelta
-from sqlmodel import select
-from appserver.db import DbSessionDep
-from fastapi import Depends, Cookie, HTTPException, status, Request
-from appserver.apps.account.exceptions import InvalidTokenError, ExpiredTokenError, UserNotFoundError, AuthNotProvidedError
-from appserver.apps.account.models import User
-from appserver.apps.account.utils import decode_token, ACCESS_TOKEN_EXPIRE_MINUTES
-from appserver.apps.account.constants import AUTH_TOKEN_COOKIE_NAME
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from sqlmodel import select
+from fastapi import Depends, Cookie, Request
+
+from appserver.db import DbSessionDep
+
+from .models import User
+from .utils import decode_token, ACCESS_TOKEN_EXPIRE_MINUTES
+from .exceptions import InvalidTokenError, ExpiredTokenError, UserNotFoundError
 
 
 async def get_user(auth_token: str | None, db_session: AsyncSession) -> User | None:
@@ -18,7 +20,7 @@ async def get_user(auth_token: str | None, db_session: AsyncSession) -> User | N
         decoded = decode_token(auth_token)
     except Exception as e:
         raise InvalidTokenError() from e
-    
+
     expires_at = datetime.fromtimestamp(decoded["exp"], tz=timezone.utc)
     now = datetime.now(timezone.utc)
     if now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES) < expires_at:
@@ -26,7 +28,7 @@ async def get_user(auth_token: str | None, db_session: AsyncSession) -> User | N
 
     stmt = select(User).where(User.username == decoded["sub"])
     result = await db_session.execute(stmt)
-    
+
     return result.scalar_one_or_none()
 
 
@@ -34,17 +36,14 @@ async def get_current_user(
     request: Request,
     db_session: DbSessionDep,
 ):
-    raw_auth_token = request.cookies.get("auth_token") or request.headers.get("Authorizaton")
-
-    if raw_auth_token is None:
-        raise AuthNotProvidedError()
-
+    raw_auth_token = request.cookies.get("auth_token") or request.headers.get("Authorization")
     *__, auth_token = raw_auth_token.split(" ")
     user = await get_user(auth_token, db_session)
     if user is None:
         raise UserNotFoundError()
     return user
-    
+
+
 CurrentUserDep = Annotated[User, Depends(get_current_user)]
 
 
@@ -54,5 +53,6 @@ async def get_current_user_optional(
 ):
     user = await get_user(auth_token, db_session)
     return user
+
 
 CurrentUserOptionalDep = Annotated[User | None, Depends(get_current_user_optional)]
