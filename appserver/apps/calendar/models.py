@@ -29,7 +29,11 @@ class Calendar(SQLModel, table=True):
     host_id: int = Field(foreign_key="users.id", unique=True)
     host: "User" = Relationship(
         back_populates="calendar",
-        sa_relationship_kwargs={"uselist":False, "single_parent":True},
+        sa_relationship_kwargs={
+            "uselist":False, 
+            "single_parent":True, 
+            "lazy":"joined"
+            },
         )
 
     time_slots: list["TimeSlot"] = Relationship(back_populates="calendar")
@@ -53,6 +57,8 @@ class Calendar(SQLModel, table=True):
             "onupdate": lambda: datetime.now(timezone.utc),
         },
     )
+    def __str__(self):
+        return f"{self.host} 캘린더"
 
 
 class TimeSlot(SQLModel, table=True):
@@ -67,7 +73,7 @@ class TimeSlot(SQLModel, table=True):
     )
 
     calendar_id: int = Field(foreign_key="calendars.id")
-    calendar: Calendar = Relationship(back_populates="time_slots")
+    calendar: Calendar = Relationship(back_populates="time_slots", sa_relationship_kwargs={"lazy":"joined"})
 
     bookings: list["Booking"] = Relationship(back_populates="time_slot")
 
@@ -90,6 +96,8 @@ class TimeSlot(SQLModel, table=True):
             "onupdate": lambda: datetime.now(timezone.utc),
         },
     )
+    def __str__(self):
+        return f"{self.calendar}. {self.start_time} - {self.end_time} {self.weekdays}"
 
 
 class Booking(SQLModel, table=True):
@@ -104,7 +112,7 @@ class Booking(SQLModel, table=True):
     attendance_status: AttendanceStatus = Field(default=AttendanceStatus.SCHEDULED, description="참석 상태", sa_type=String)
     
     time_slot_id: int = Field(foreign_key="time_slots.id")
-    time_slot: TimeSlot = Relationship(back_populates="bookings")
+    time_slot: TimeSlot = Relationship(back_populates="bookings", sa_relationship_kwargs={"lazy":"joined"})
 
     guest_id: int = Field(foreign_key="users.id")
     guest: "User" = Relationship(back_populates="bookings")
@@ -130,6 +138,8 @@ class Booking(SQLModel, table=True):
             "onupdate": lambda: datetime.now(timezone.utc),
         },
     )
+    def __str__(self):
+        return f"{self.when} {self.time_slot.start_time} - {self.time_slot.end_time}"
 
 
 class BookingFile(SQLModel, table=True):

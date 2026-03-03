@@ -90,6 +90,11 @@ async def login(payload: LoginPayload, session: DbSessionDep) -> User:
     )
 
     response_data = {
+        # 프론트(React)용
+        "accessToken": access_token,
+
+        # SQLAdmin / 기존 코드용 (유지)
+    
         "access_token": access_token,
         "token_type": "bearer",
         "user": user.model_dump(mode="json", exclude={"hashed_password", "email"})
@@ -103,8 +108,10 @@ async def login(payload: LoginPayload, session: DbSessionDep) -> User:
         value=access_token,
         expires=now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
         httponly=True,
-        secure=True,
-        samesite="strict"
+        # secure=True,
+        secure=False,
+        # samesite="strict",
+        samesite="lax"
     )
 
     return res
