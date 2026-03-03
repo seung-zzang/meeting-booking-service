@@ -1,15 +1,17 @@
 from fastapi import APIRouter, status, Query, HTTPException, UploadFile, File
 from sqlmodel import select, and_, func, true, extract
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import selectinload
 from appserver.apps.account.models import User
 from appserver.apps.calendar.models import Calendar, TimeSlot, Booking, BookingFile
 from appserver.db import DbSessionDep
 from appserver.apps.account.deps import CurrentUserOptionalDep, CurrentUserDep
 from appserver.apps.calendar.deps import UtcNow
-from appserver.apps.calendar.schemas import CalendarDetailOut, CalendarOut, CalendarCreateIn, CalendarUpdateIn, TimeSlotCreateIn, TimeSlotOut, BookingCreateIn, BookingOut, SimpleBookingOut, HostBookingUpdatedIn, GuestBookingUpdateIn, HostBookingStatusUpdateIn
+from appserver.apps.calendar.schemas import CalendarDetailOut, CalendarOut, CalendarCreateIn, CalendarUpdateIn, TimeSlotCreateIn, TimeSlotOut, BookingCreateIn, BookingOut, SimpleBookingOut, HostBookingUpdatedIn, GuestBookingUpdateIn, HostBookingStatusUpdateIn, PaginatedBookingOut
 from appserver.apps.calendar.exceptions import CalendarNotFoundError, HostNotFoundError, CalendarAlreadyExistsError, GuestPermissionError, TimeSlotOverlapError, TimeSlotNotFoundError
 from datetime import datetime, timezone
 from typing import Annotated
+# import json, asyncio
 
 
 router = APIRouter()
@@ -125,7 +127,7 @@ async def create_time_slot(
     existing_time_slots = result.scalars().all()
 
     for exist_time_slot in existing_time_slots:
-        if any(day in existing_time_slots.weekdays for day in payload.weekdays):
+        if any(day in exist_time_slot.weekdays for day in payload.weekdays):
             raise TimeSlotOverlapError()
 
     time_slot = TimeSlot(
@@ -220,7 +222,7 @@ async def get_host_bookings_by_month(
 async def host_calendar_bookings(
     host_username:str,
     session: DbSessionDep,
-    year: Annotated[int, Query(ge=2024, le=2025)],
+    year: Annotated[int, Query(ge=2026)],
     month: Annotated[int, Query(ge=1, le=12)],
 ) -> list[SimpleBookingOut]:
     stmt = select(User).where(User.username == host_username)
@@ -243,23 +245,30 @@ async def host_calendar_bookings(
 @router.get(
     "/guest_calendar/bookings",
     status_code=status.HTTP_200_OK,
-    response_model=list[BookingOut],
+    response_model=PaginatedBookingOut,
 )
 async def guest_calendar_bookings(
     user: CurrentUserDep,
     session: DbSessionDep,
     page: Annotated[int, Query(ge=1, le=50)],
     page_size: Annotated[int, Query(ge=1, le=50)],
-) -> list[BookingOut]:
+) -> PaginatedBookingOut:
     stmt = (
         select(Booking)
+        .options(selectinload(Booking.files))
         .where(Booking.guest_id == user.id)
         .order_by(Booking.when.desc(), Booking.created_at.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
     )
     result = await session.execute(stmt)
-    return result.unique().scalars().all()
+    count_stmt = select(func.count()).select_from(Booking).where(Booking.guest_id == user.id)
+    count_result = await session.execute(count_stmt)
+    
+    return PaginatedBookingOut(
+        bookings=result.scalars().all(),
+        total_count=count_result.scalar_one_or_none() or 0,
+    )
 
 
 @router.get(
@@ -440,4 +449,29 @@ async def upload_booking_files(
     await session.refresh(booking, ["files"])
 
     return booking
+
+
+@router.get(
+    "/time-slots/{host_username}",
+    status_code=status.HTTP_200_OK,
+    response_model=list[TimeSlotOut],
+)
+async def get_host_timeslots(
+    host_username: str,
+    session: DbSessionDep,
+) -> list[TimeSlotOut]:
+    stmt = (
+        select(User)
+        .where(User.username == host_username)
+        .where(User.is_active.is_(true()))
+        .where(User.is_host.is_(true()))
+    )
+    result = await session.execute(stmt)
+    host = result.scalar_one_or_none()
+    if host is None or host.calendar is None:
+        raise HostNotFoundError()
+    
+    stmt = select(TimeSlot).where(TimeSlot.calendar_id == host.calendar.id)
+    result = await session.execute(stmt)
+    return result.scalars().all()
 

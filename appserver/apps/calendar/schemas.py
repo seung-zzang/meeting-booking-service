@@ -5,6 +5,7 @@ from sqlmodel.main import SQLModelConfig
 from fastapi_storages import StorageFile
 from appserver.libs.collections.sort import deduplicate_and_sort
 from appserver.apps.calendar.enums import AttendanceStatus
+from appserver.apps.account.schemas import UserOut
 from datetime import time, date
 
 
@@ -86,6 +87,7 @@ class BookingOut(SQLModel):
     topic: str
     description: str
     time_slot: TimeSlotOut
+    host: UserOut # 추가한 필드
     attendance_status: AttendanceStatus
     files: list[BookingFileOut]
     created_at: AwareDatetime
@@ -113,3 +115,6 @@ class GuestBookingUpdateIn(SQLModel):
     time_slot_id: int | None = Field(default=None, description="타임슬롯 ID")
 
 
+class PaginatedBookingOut(SQLModel):
+    bookings: list[BookingOut]
+    total_count: int
