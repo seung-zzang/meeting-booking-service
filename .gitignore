@@ -13,3 +13,6 @@ local.db
 
 # editor
 .vscode/
+
+# google calendar-booking account service key
+calendar-booking-service-seungzzang.json

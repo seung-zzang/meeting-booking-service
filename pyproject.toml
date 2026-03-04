@@ -20,7 +20,8 @@ dependencies = [
     "pytest-lazy-fixtures (>=1.4.0,<2.0.0)",
     "python-multipart (>=0.0.22,<0.0.23)",
     "fastapi-storages[all] (>=0.3.0,<0.4.0)",
-    "sqladmin[full] (>=0.23.0,<0.24.0)"
+    "sqladmin[full] (>=0.23.0,<0.24.0)",
+    "google-api-python-client (>=2.191.0,<3.0.0)"
 ]
 
 
@@ -31,12 +32,13 @@ build-backend = "poetry.core.masonry.api"
 [dependency-groups]
 dev = [
     "pytest (>=9.0.2,<10.0.0)",
-    "pytest-asyncio (>=1.3.0,<2.0.0)"
+    "pytest-asyncio (>=1.3.0,<2.0.0)",
+    "pytest-env (>=1.5.0,<2.0.0)"
 ]
 
 [tool.pytest.ini_options]
 minversion = "8.3.4"
-env = []
+env = ["GOOGLE_CALENDAR_ID=nalradenggi@gmail.com"]
 addopts = " --strict-markers --tb=short --asyncio-mode=auto -p no:warnings --doctest-modules"
 python_files = ["tests.py", "test_*.py"]
 rootdir = "./"

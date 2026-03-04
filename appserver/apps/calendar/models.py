@@ -36,7 +36,10 @@ class Calendar(SQLModel, table=True):
             },
         )
 
-    time_slots: list["TimeSlot"] = Relationship(back_populates="calendar")
+    time_slots: list["TimeSlot"] = Relationship(
+        back_populates="calendar",
+        sa_relationship_kwargs={"lazy":"noload"}
+        )
 
     created_at: AwareDatetime = Field(
 
@@ -73,9 +76,15 @@ class TimeSlot(SQLModel, table=True):
     )
 
     calendar_id: int = Field(foreign_key="calendars.id")
-    calendar: Calendar = Relationship(back_populates="time_slots", sa_relationship_kwargs={"lazy":"joined"})
+    calendar: Calendar = Relationship(
+        back_populates="time_slots",
+        sa_relationship_kwargs={"lazy":"joined"}
+        )
 
-    bookings: list["Booking"] = Relationship(back_populates="time_slot")
+    bookings: list["Booking"] = Relationship(
+        back_populates="time_slot",
+        sa_relationship_kwargs={"lazy":"noload"}    # 타임슬롯에 의존하는 부킹 데이터는 매우 많아질 가능성이 큼 -> 필요하면 별도로 타임슬롯에 속하는 부킹 데이터 가져오는 것이 성능에 좋음
+        )
 
     created_at: AwareDatetime = Field(
 
@@ -112,12 +121,21 @@ class Booking(SQLModel, table=True):
     attendance_status: AttendanceStatus = Field(default=AttendanceStatus.SCHEDULED, description="참석 상태", sa_type=String)
     
     time_slot_id: int = Field(foreign_key="time_slots.id")
-    time_slot: TimeSlot = Relationship(back_populates="bookings", sa_relationship_kwargs={"lazy":"joined"})
+    time_slot: TimeSlot = Relationship(
+        back_populates="bookings",
+        sa_relationship_kwargs={"lazy":"joined"}
+        )
 
     guest_id: int = Field(foreign_key="users.id")
-    guest: "User" = Relationship(back_populates="bookings")
+    guest: "User" = Relationship(
+        back_populates="bookings",
+        sa_relationship_kwargs={"lazy":"joined"},
+        )
 
-    files: list["BookingFile"] = Relationship(back_populates="booking")
+    files: list["BookingFile"] = Relationship(
+        back_populates="booking",
+        sa_relationship_kwargs={"lazy":"joined"},
+        )
 
     created_at: AwareDatetime = Field(
 
@@ -153,7 +171,10 @@ class BookingFile(SQLModel, table=True):
 
     id: int = Field(default=None, primary_key=True)
     booking_id: int = Field(foreign_key="bookings.id")
-    booking: Booking = Relationship(back_populates="files")
+    booking: Booking = Relationship(
+        back_populates="files",
+        sa_relationship_kwargs={"lazy":"noload"},
+        )
     file: StorageFile = Field(
         exclude=True,
         sa_column=Column(

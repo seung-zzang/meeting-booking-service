@@ -6,7 +6,7 @@ from sqlalchemy import UniqueConstraint
 from sqlalchemy_utc import UtcDateTime
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlmodel.main import SQLModelConfig
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 import random, string
 from appserver.apps.account.enums import AccountStatus
 
@@ -30,14 +30,20 @@ class User(SQLModel, table=True):
     status: AccountStatus = Field(default=AccountStatus.ACTIVE, description="사용자 상태", sa_type=String)
 
     # 반대로 User를 가리키는 OAuthAccount를 가져오려면
-    oauth_accounts: list["OAuthAccount"] = Relationship(back_populates="user")
+    oauth_accounts: list["OAuthAccount"] = Relationship(
+        back_populates="user",
+        sa_relationship_kwargs={"lazy":"noload"}
+        )
 
-    calendar: "Calendar" = Relationship(
+    calendar: Union["Calendar", None] = Relationship(
         back_populates="host",
         sa_relationship_kwargs={"uselist":False, "single_parent":True, "lazy": "joined"},
     )
 
-    bookings: list["Booking"] = Relationship(back_populates="guest")
+    bookings: list["Booking"] = Relationship(
+        back_populates="guest",
+        sa_relationship_kwargs={"lazy":"noload"}
+        )
     
     # created/updated_at 수정
     created_at: AwareDatetime = Field(
@@ -97,7 +103,10 @@ class OAuthAccount(SQLModel, table=True):
     # user: User = Relationship()
     
     # 반대로 User를 가리키는 OAuthAccount도 가져오려면
-    user: "User" = Relationship(back_populates="oauth_accounts")
+    user: "User" = Relationship(
+        back_populates="oauth_accounts",
+        sa_relationship_kwargs={"lazy":"joined"},   # SQLAdmin에서 소셜 게정 목록 페이지 - 사용자 보여주기 위함 // 
+        )
 
     created_at: AwareDatetime = Field(
         default=None,
