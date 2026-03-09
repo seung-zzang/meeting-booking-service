@@ -22,7 +22,7 @@ class Calendar(SQLModel, table=True):
     # topics: list[str] = Field(sa_type=JSON, default_factory=list, description="게스트오 나눌 주제들")
 
     # DB별 타입 분기 (variant)
-    topics: list[str] = Field(sa_type=JSON().with_variant(JSONB(astext_type=Text()), "postgresql"), default_factory=list, description="게스트오 나눌 주제들")
+    topics: list[str] = Field(sa_type=JSON().with_variant(JSONB(astext_type=Text()), "postgresql"), default_factory=list, description="게스트로 나눌 주제들")
     description: str = Field(sa_type=Text, description="게스트에게 보여 줄 설명")
     google_calendar_id: str = Field(max_length=1024, description="Google Calendar ID")
 
@@ -136,6 +136,14 @@ class Booking(SQLModel, table=True):
         back_populates="booking",
         sa_relationship_kwargs={"lazy":"joined"},
         )
+
+    google_event_id: str | None = Field(
+        max_length=64,
+        default=None,
+        nullable=True,
+        description="Google Calendar Event ID",
+        sa_type=String,
+    )
 
     created_at: AwareDatetime = Field(
 

@@ -21,7 +21,8 @@ dependencies = [
     "python-multipart (>=0.0.22,<0.0.23)",
     "fastapi-storages[all] (>=0.3.0,<0.4.0)",
     "sqladmin[full] (>=0.23.0,<0.24.0)",
-    "google-api-python-client (>=2.191.0,<3.0.0)"
+    "google-api-python-client (>=2.191.0,<3.0.0)",
+    "sentry-sdk[fastapi] (>=2.54.0,<3.0.0)"
 ]
 
 
