@@ -14,9 +14,6 @@ import { useBookings } from '~/hooks/useBookings';
 
 import './calendar.less';
 import { useAuth } from '~/hooks/useAuth';
-import { useBookingsStreamQuery } from '~/hooks/useBookings';
-
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
 function Calendar({ baseDate }: { baseDate?: Date }) {
     const { year, month } = useSearch({ from: '/app/calendar/$slug' });
@@ -29,12 +26,6 @@ function Calendar({ baseDate }: { baseDate?: Date }) {
     const calendar = useCalendarEvent(slug);
     const { data: timeslots = [] } = useTimeslots(slug, selectedDate);
     const { data: bookingsApi = [], refetch: refetchBookings } = useBookings(slug, selectedDate);
-    const bookingsStream = useBookingsStreamQuery({
-        endpoint: `${API_URL}/calendar/${slug}/bookings/stream?year=${year}&month=${month}`,
-        onMessage: (data) => {
-            console.log('onMessage', data);
-        },
-    });
     const { handlePrevious, handleNext } = useCalendarNavigation();
     const { handleSelectDay } = useCalendarDateSelection();
 
@@ -102,12 +93,12 @@ function Calendar({ baseDate }: { baseDate?: Date }) {
                         days={getCalendarDays(new Date(year, month - 1))}
                         baseDate={baseDate}
                         timeslots={timeslots}
-                        bookings={month % 2 === 0 ? bookingsApi : bookingsStream}
+                        bookings={bookingsApi}
                         onSelectDay={handleDaySelect}
                     />
                     <Timeslots
                         timeslots={timeslots}
-                        bookings={month % 2 === 0 ? bookingsApi : bookingsStream}
+                        bookings={bookingsApi}
                         baseDate={selectedDate}
                         onSelectTimeslot={handleSelectTimeslot}
                     />

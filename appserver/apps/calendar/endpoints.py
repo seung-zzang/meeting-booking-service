@@ -1,5 +1,6 @@
 import calendar
 import asyncio
+import json
 from typing import Annotated
 from datetime import datetime, timezone
 from fastapi import APIRouter, File, UploadFile, status, Query, HTTPException, BackgroundTasks
@@ -158,34 +159,51 @@ async def host_calendar_bookings_stream(
     stmt = (
         select(Booking)
         .where(Booking.time_slot.has(TimeSlot.calendar_id == host.calendar.id))
-        .where(extract('year', Booking.when) == year)
-        .where(extract('month', Booking.when) == month)
+        .where(extract("year", Booking.when) == year)
+        .where(extract("month", Booking.when) == month)
         .order_by(Booking.when.desc())
     )
     result = await session.execute(stmt)
     bookings = result.unique().scalars().all()
 
-    async def _stream_bookings():
-        for booking in bookings:
-            yield f"{SimpleBookingOut.model_validate(booking).model_dump_json()}\n"
+    async def _event_stream():
+        try:
+            # 먼저 로컬 DB 예약들을 SSE 형식으로 전송
+            for booking in bookings:
+                payload = SimpleBookingOut.model_validate(booking).model_dump()
+                yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
-        await asyncio.sleep(3)
+            # Google Calendar 연동이 없으면 여기서 종료 신호만 보냄
+            if service is None or not host.calendar.google_calendar_id:
+                yield 'data: {"type":"complete"}\n\n'
+                return
 
-        if service is None or not host.calendar.google_calendar_id:
-            return
+            last_day = calendar.monthrange(year, month)[1]
+            events = await service.event_list(
+                time_min=datetime(year, month, 1).astimezone(timezone.utc),
+                time_max=datetime(year, month, last_day).astimezone(timezone.utc),
+                google_calendar_id=host.calendar.google_calendar_id,
+            )
+            for event in events:
+                payload = GoogleCalendarEventOut(
+                    id=event["id"],
+                    start=event["start"],
+                    end=event["end"],
+                ).model_dump()
+                yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
-        last_day = calendar.monthrange(year, month)[1]
-        events = await service.event_list(
-            time_min=datetime(year, month, 1).astimezone(timezone.utc),
-            time_max=datetime(year, month, last_day).astimezone(timezone.utc),
-            google_calendar_id=host.calendar.google_calendar_id,
-        )
-        for event in events:
-            yield f"{GoogleCalendarEventOut.model_validate(event).model_dump_json()}\n"
+            # 클라이언트가 스트림 종료를 판단할 수 있도록 완료 이벤트 전송
+            yield 'data: {"type":"complete"}\n\n'
+
+        except Exception as exc:  # pragma: no cover - 방어용
+            # 에러도 SSE로 한 번만 전달하고 스트림 종료
+            err_payload = {"type": "error", "message": str(exc)}
+            yield f"data: {json.dumps(err_payload, ensure_ascii=False)}\n\n"
+            yield 'data: {"type":"complete"}\n\n'
 
     return StreamingResponse(
-        _stream_bookings(),
-        media_type="application/x-ndjson",
+        _event_stream(),
+        media_type="text/event-stream",
         status_code=status.HTTP_200_OK,
     )
 
