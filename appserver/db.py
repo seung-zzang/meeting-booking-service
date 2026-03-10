@@ -29,9 +29,16 @@ def get_dsn() -> str:
 
 
 def create_engine(dsn: str):
+    pool_size = int(os.getenv("DB_POOL_SIZE", "10"))
+    max_overflow = int(os.getenv("DB_MAX_OVERFLOW", "20"))
+    pool_timeout = int(os.getenv("DB_POOL_TIMEOUT", "30"))
+
     return create_async_engine(
         normalize_dsn(dsn),
         echo=os.getenv("SQL_ECHO", "false").lower() in {"1", "true", "yes", "on"},
+        pool_size=pool_size,
+        max_overflow=max_overflow,
+        pool_timeout=pool_timeout,
     )
 
 def create_session(async_engine: AsyncEngine | None = None):

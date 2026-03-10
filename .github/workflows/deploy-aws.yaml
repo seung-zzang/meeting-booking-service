@@ -81,6 +81,10 @@ jobs:
             # 운영 디렉토리로 이동
             cd "$WORKDIR"
 
+            # RDS DATABASE_URL 환경 변수 (GitHub Secrets 에서 주입)
+            # 예: secrets.RDS_DATABASE_URL = "postgresql+psycopg://user:pass@host:5432/dbname?sslmode=verify-full&sslrootcert=/certs/global-bundle.pem"
+            export DATABASE_URL="${{ secrets.RDS_DATABASE_URL }}"
+
             # 기존 가상환경 사용
             . .venv/bin/activate
 
