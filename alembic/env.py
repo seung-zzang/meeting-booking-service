@@ -12,7 +12,7 @@ from appserver.db import DSN    # (2)
 
 import asyncio
 
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import async_engine_from_config
 from sqlalchemy.engine import Connection
 
 # this is the Alembic Config object, which provides
@@ -94,18 +94,15 @@ async def run_migrations_online() -> None:  # (1)
 
     configuration["sqlalchemy.url"] = DSN   # DSN 설정
 
-    connectable = AsyncEngine(  # (2) 비동기 DB 엔진 생성
-        engine_from_config(
-            configuration,
-            prefix="sqlalchemy.",
-            poolclass=pool.NullPool
-        ),
+    connectable = async_engine_from_config(
+        configuration,
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
     )
-
 
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)    # (3) 비동기 맥락에서 do_run_migrations() 실행
-        await connectable.dispose()
+    await connectable.dispose()
 
 
 
