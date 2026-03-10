@@ -71,7 +71,6 @@ export function checkAvailableBookingDate(
     weekday: number
 ) {
     const isUnavailable =
-    (weekday === 5 || weekday === 6) ||
     (year < baseDate.getFullYear() ||
       (year === baseDate.getFullYear() && month < baseDate.getMonth() + 1)) ||
     (year === baseDate.getFullYear() &&
@@ -89,9 +88,6 @@ export function checkAvailableBookingDate(
     if (day === 0) {
         return false;
     }
-
-    const isTimeSlotWeekday = timeslots.some(timeslot => timeslot.weekdays.includes(weekday));
-    if (!isTimeSlotWeekday) return false;
 
     return !bookings.some((booking) => {
         const [bookingYear, bookingMonth, bookingDay] = booking.when.split("-");

@@ -61,17 +61,6 @@ async def host_calendar_detail(
     user: CurrentUserOptionalDep,
     session: DbSessionDep
 ) -> CalendarOut | CalendarDetailOut:
-    capture_event({
-        "level": "error",
-        "message": "host_calendar_detail()에서 남긴 이벤트",
-        "user": user.username if user else None,
-        "extra": {
-            "host_username": host_username,
-            "provider": "Seungzzang"
-        }
-    })
-    capture_message("host_calendar_detail()에서 남긴 메시지")
-    capture_exception(Exception("수동 Exception"))
     stmt = select(User).where(User.username == host_username)
     result = await session.execute(stmt)
     host = result.scalar_one_or_none()

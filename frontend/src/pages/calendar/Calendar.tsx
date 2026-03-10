@@ -12,7 +12,7 @@ import { useTimeslots } from '~/hooks/useTimeslots';
 import { ITimeSlot } from '~/types/timeslot';
 import { useBookings } from '~/hooks/useBookings';
 
-import './calendar.less';
+// import './calendar.less';
 import { useAuth } from '~/hooks/useAuth';
 
 function Calendar({ baseDate }: { baseDate?: Date }) {
@@ -46,11 +46,6 @@ function Calendar({ baseDate }: { baseDate?: Date }) {
         setSelectedTimeslot(null);
         refetchBookings();
     };
-
-    useEffect(() => {
-        const date = new Date(year, month - 1, 1);
-        handleDaySelect(date);
-    }, [year, month, handleDaySelect]);
 
     useEffect(() => {
         if (auth.isError) {
