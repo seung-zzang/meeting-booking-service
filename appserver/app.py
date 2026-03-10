@@ -15,6 +15,10 @@ from .db import engine
 
 app = FastAPI()
 
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
 def include_routers(_app: FastAPI):
     _app.include_router(account_router)
     _app.include_router(calendar_router)
