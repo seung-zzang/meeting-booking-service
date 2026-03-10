@@ -98,6 +98,10 @@ jobs:
 
             # 업로드 디렉토리 없을 경우를 대비한 방어 코드
             mkdir -p uploads/bookings
+            mkdir -p static
+
+            sudo chown -R ubuntu:ubuntu uploads static
+            chmod -R 755 uploads static
 
             # DB 마이그레이션 적용
             alembic upgrade head
