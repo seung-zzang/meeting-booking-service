@@ -1,0 +1,120 @@
+name: Calendar App Deployment
+
+# main 브랜치에 push 되면 배포 실행
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    # GitHub Actions 실행 환경
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1) 현재 GitHub 저장소 코드 체크아웃
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      # 2) Bastion 서버를 경유해서 private app 서버로 프로젝트 파일 복사
+      - name: Copy project to private app server via bastion
+        uses: appleboy/scp-action@v1
+        with:
+          # 최종적으로 복사될 대상 서버 = private app server
+          host: ${{ secrets.WITHSEUNGZZANG_APP_PRIVATE_IP }}
+          username: ubuntu
+          key: ${{ secrets.WITHSEUNGZZANG_SSH_KEY }}
+
+          # 현재 GitHub Actions runner의 작업 디렉토리 전체를 복사
+          source: "."
+          target: "/home/ubuntu/deploy-temp"
+
+          # 대상 디렉토리 기존 파일 제거 후 덮어쓰기
+          rm: true
+          overwrite: true
+
+          # Bastion(public) 서버를 점프 호스트로 사용
+          proxy_host: ${{ secrets.WITHSEUNGZZANG_BASTION_PUBLIC_IP }}
+          proxy_username: ubuntu
+          proxy_key: ${{ secrets.WITHSEUNGZZANG_SSH_KEY }}
+
+      # 3) Private app 서버에 접속해서 실제 배포 수행
+      - name: Deploy on private app server via bastion
+        uses: appleboy/ssh-action@v1
+        with:
+          # 실제 명령이 실행될 서버 = private app server
+          host: ${{ secrets.WITHSEUNGZZANG_APP_PRIVATE_IP }}
+          username: ubuntu
+          key: ${{ secrets.WITHSEUNGZZANG_SSH_KEY }}
+
+          # Bastion(public) 서버를 통해 우회 접속
+          proxy_host: ${{ secrets.WITHSEUNGZZANG_BASTION_PUBLIC_IP }}
+          proxy_username: ubuntu
+          proxy_key: ${{ secrets.WITHSEUNGZZANG_SSH_KEY }}
+
+          script: |
+            # 명령 중 하나라도 실패하면 즉시 중단
+            set -e
+
+            # 실제 운영 프로젝트 디렉토리
+            WORKDIR=/withseungzzang
+
+            # GitHub Actions에서 scp로 업로드한 임시 디렉토리
+            TMPDIR=/home/ubuntu/deploy-temp
+
+            # 운영 디렉토리가 없으면 생성
+            sudo mkdir -p "$WORKDIR"
+
+            # 임시 업로드한 코드 -> 실제 운영 디렉토리로 동기화
+            # 불필요한 파일/디렉토리는 제외
+            sudo rsync -av --delete \
+              --exclude ".git" \
+              --exclude ".github" \
+              --exclude ".venv" \
+              --exclude "__pycache__" \
+              --exclude ".pytest_cache" \
+              "$TMPDIR"/ "$WORKDIR"/
+
+            # 운영 디렉토리 소유권을 ubuntu로 맞춤
+            # (권한 문제 방지)
+            sudo chown -R ubuntu:ubuntu "$WORKDIR"
+
+            # 운영 디렉토리로 이동
+            cd "$WORKDIR"
+
+            # 기존 가상환경 사용
+            . .venv/bin/activate
+
+            # pip 최신화
+            pip install --upgrade pip
+
+            # poetry 설치
+            pip install poetry
+
+            # poetry가 별도 가상환경 만들지 않고 현재 .venv에 설치하도록 설정
+            poetry config virtualenvs.create false
+
+            # 의존성 설치
+            poetry install --no-interaction --no-root
+
+            # 업로드 디렉토리 없을 경우를 대비한 방어 코드
+            mkdir -p uploads/bookings
+
+            # DB 마이그레이션 적용
+            alembic upgrade head
+
+            # 애플리케이션 재시작
+            sudo systemctl restart calendarapp
+
+            # nginx 재시작
+            sudo systemctl restart nginx
+
+            # 서버가 뜰 시간 잠깐 대기
+            sleep 5
+
+            # FastAPI 헬스체크
+            curl -fsS http://127.0.0.1:8000/ >/dev/null
+
+            # nginx를 통한 프론트 경로 확인
+            curl -fsS http://127.0.0.1/app/ >/dev/null || true
+
+            echo "Deployment completed successfully."
