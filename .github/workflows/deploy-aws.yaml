@@ -119,6 +119,6 @@ jobs:
             curl -fsS http://127.0.0.1:8000/ >/dev/null
 
             # nginx를 통한 프론트 경로 확인
-            curl -fsS http://127.0.0.1/app/ >/dev/null || true
+            curl -fsS http://127.0.0.1/app/ >/dev/null
 
             echo "Deployment completed successfully."
