@@ -1,6 +1,7 @@
 from pathlib import Path
 from datetime import datetime
 from typing import Any, Literal, Optional
+import os
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -11,7 +12,12 @@ from .schemas import CalendarEvent, Reminder
 
 BASE_DIR = Path(__file__).parent.parent.parent.parent.parent
 
-GOOGLE_SERVICE_ACCOUNT_CREDENTIAL_PATH = BASE_DIR / "calendar-booking-service-seungzzang.json"
+GOOGLE_SERVICE_ACCOUNT_CREDENTIAL_PATH = Path(
+    os.getenv(
+        "GOOGLE_CREDENTIALS_PATH",
+        (BASE_DIR / "calendar-booking-service-seungzzang.json").as_posix(),
+    )
+)
 
 
 class GoogleCalendarService:
