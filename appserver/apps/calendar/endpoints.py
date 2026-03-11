@@ -486,7 +486,7 @@ async def host_update_booking(
         .where(TimeSlot.calendar_id == user.calendar.id)
     )
     result = await session.execute(stmt)
-    booking = result.scalar_one_or_none()
+    booking = result.unique().scalar_one_or_none()
     if booking is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="예약 내역이 없습니다.")
     
