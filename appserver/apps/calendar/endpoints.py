@@ -1,15 +1,13 @@
-import calendar
 import asyncio
-import json
+import calendar
 from typing import Annotated
 from datetime import datetime, timezone
-from fastapi import APIRouter, File, UploadFile, status, Query, HTTPException, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, File, UploadFile, status, Query, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlmodel import select, and_, func, true, extract
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import selectinload
-from sentry_sdk import capture_exception, capture_message, capture_event
 
 from appserver.apps.account.models import User
 from appserver.apps.account.deps import CurrentUserDep, CurrentUserOptionalDep
@@ -97,7 +95,7 @@ async def host_calendar_bookings(
 
     if host is None or host.calendar is None:
         raise HostNotFoundError()
-    
+
     stmt = (
         select(Booking)
         .where(Booking.time_slot.has(TimeSlot.calendar_id == host.calendar.id))
@@ -108,25 +106,17 @@ async def host_calendar_bookings(
     result = await session.execute(stmt)
     bookings = result.unique().scalars().all()
 
-    # Google Calendar 연동이 설정되지 않은 개발/로컬 환경에서는 이벤트 조회를 스킵한다.
-    if service is not None and host.calendar.google_calendar_id:
-        last_day = calendar.monthrange(year, month)[1]
-        events = await service.event_list(
-            time_min=datetime(year, month, 1).astimezone(timezone.utc),
-            time_max=datetime(year, month, last_day).astimezone(timezone.utc),
-            google_calendar_id=host.calendar.google_calendar_id,
-        )
-
-        for event in events:
-            bookings.append(
-                GoogleCalendarEventOut(
-                    id=event["id"],
-                    start=event["start"],
-                    end=event["end"],
-                )
-            )
+    last_day = calendar.monthrange(year, month)[1]
+    events = await service.event_list(
+        time_min=datetime(year, month, 1).astimezone(timezone.utc),
+        time_max=datetime(year, month, last_day).astimezone(timezone.utc),
+        google_calendar_id=host.calendar.google_calendar_id,
+    )
+    for event in events:
+        bookings.append(GoogleCalendarEventOut.model_validate(event))
 
     return bookings
+
 
 @router.get(
     "/calendar/{host_username}/bookings/stream",
@@ -142,57 +132,36 @@ async def host_calendar_bookings_stream(
     stmt = select(User).where(User.username == host_username)
     result = await session.execute(stmt)
     host = result.scalar_one_or_none()
+
     if host is None or host.calendar is None:
         raise HostNotFoundError()
 
     stmt = (
         select(Booking)
         .where(Booking.time_slot.has(TimeSlot.calendar_id == host.calendar.id))
-        .where(extract("year", Booking.when) == year)
-        .where(extract("month", Booking.when) == month)
+        .where(extract('year', Booking.when) == year)
+        .where(extract('month', Booking.when) == month)
         .order_by(Booking.when.desc())
     )
     result = await session.execute(stmt)
     bookings = result.unique().scalars().all()
+    async def _stream_bookings():
+        for booking in bookings:
+            yield f"{SimpleBookingOut.model_validate(booking).model_dump_json()}\n"
 
-    async def _event_stream():
-        try:
-            # 먼저 로컬 DB 예약들을 SSE 형식으로 전송
-            for booking in bookings:
-                payload = SimpleBookingOut.model_validate(booking).model_dump()
-                yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
-
-            # Google Calendar 연동이 없으면 여기서 종료 신호만 보냄
-            if service is None or not host.calendar.google_calendar_id:
-                yield 'data: {"type":"complete"}\n\n'
-                return
-
-            last_day = calendar.monthrange(year, month)[1]
-            events = await service.event_list(
-                time_min=datetime(year, month, 1).astimezone(timezone.utc),
-                time_max=datetime(year, month, last_day).astimezone(timezone.utc),
-                google_calendar_id=host.calendar.google_calendar_id,
-            )
-            for event in events:
-                payload = GoogleCalendarEventOut(
-                    id=event["id"],
-                    start=event["start"],
-                    end=event["end"],
-                ).model_dump()
-                yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
-
-            # 클라이언트가 스트림 종료를 판단할 수 있도록 완료 이벤트 전송
-            yield 'data: {"type":"complete"}\n\n'
-
-        except Exception as exc:  # pragma: no cover - 방어용
-            # 에러도 SSE로 한 번만 전달하고 스트림 종료
-            err_payload = {"type": "error", "message": str(exc)}
-            yield f"data: {json.dumps(err_payload, ensure_ascii=False)}\n\n"
-            yield 'data: {"type":"complete"}\n\n'
+        await asyncio.sleep(3)
+        last_day = calendar.monthrange(year, month)[1]
+        events = await service.event_list(
+            time_min=datetime(year, month, 1).astimezone(timezone.utc),
+            time_max=datetime(year, month, last_day).astimezone(timezone.utc),
+            google_calendar_id=host.calendar.google_calendar_id,
+        )
+        for event in events:
+            yield f"{GoogleCalendarEventOut.model_validate(event).model_dump_json()}\n"
 
     return StreamingResponse(
-        _event_stream(),
-        media_type="text/event-stream",
+        _stream_bookings(),
+        media_type="application/x-ndjson",
         status_code=status.HTTP_200_OK,
     )
 
@@ -221,7 +190,7 @@ async def guest_calendar_bookings(
     count_result = await session.execute(count_stmt)
     
     return PaginatedBookingOut(
-        bookings=result.scalars().all(),
+        bookings=result.unique().scalars().all(),
         total_count=count_result.scalar_one_or_none() or 0,
     )
 
@@ -235,7 +204,6 @@ async def create_calendar(
     user: CurrentUserDep,
     session: DbSessionDep,
     payload: CalendarCreateIn,
-    service: GoogleCalendarServiceDep,
 ) -> CalendarDetailOut:
     if not user.is_host:
         raise GuestPermissionError()
@@ -452,7 +420,7 @@ async def get_host_bookings_by_month(
     )
     result = await session.execute(stmt)
 
-    return result.unique().scalars().all()    
+    return result.scalars().all()    
 
 
 @router.get(
@@ -507,14 +475,13 @@ async def host_update_booking(
         .where(TimeSlot.calendar_id == user.calendar.id)
     )
     result = await session.execute(stmt)
-    booking = result.unique().scalar_one_or_none()
+    booking = result.scalar_one_or_none()
     if booking is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="예약 내역이 없습니다.")
     
     if booking.when < now.date():
         raise PastBookingError()
         
-    effective_time_slot = booking.time_slot
     if payload.time_slot_id is not None:
         stmt = (
             select(TimeSlot)
@@ -527,10 +494,9 @@ async def host_update_booking(
             raise TimeSlotNotFoundError()
         
         booking.time_slot_id = time_slot.id
-        effective_time_slot = time_slot
 
     if payload.when is not None:
-        if payload.when.weekday() not in effective_time_slot.weekdays:
+        if payload.when.weekday() not in booking.time_slot.weekdays:
             raise TimeSlotNotFoundError()
         booking.when = payload.when
 
@@ -568,6 +534,7 @@ async def guest_update_booking(
     now: UtcNow,
     payload: GuestBookingUpdateIn,
     service: GoogleCalendarServiceDep,
+    background_tasks: BackgroundTasks,
 ) -> BookingOut:
     stmt = (
         select(Booking)
@@ -575,14 +542,13 @@ async def guest_update_booking(
         .where(Booking.guest_id == user.id)
     )
     result = await session.execute(stmt)
-    booking = result.unique().scalar_one_or_none()
+    booking = result.scalar_one_or_none()
     if booking is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="예약 내역이 없습니다.")
     
     if booking.when <= now.date():
         raise PastBookingError()
 
-    effective_time_slot = booking.time_slot
     if payload.time_slot_id is not None:
         stmt = (
             select(TimeSlot)
@@ -594,14 +560,13 @@ async def guest_update_booking(
         if time_slot is None:
             raise TimeSlotNotFoundError()
         booking.time_slot_id = time_slot.id
-        effective_time_slot = time_slot
 
     if payload.topic is not None:
         booking.topic = payload.topic
     if payload.description is not None:
         booking.description = payload.description
     if payload.when is not None:
-        if payload.when.weekday() not in effective_time_slot.weekdays:
+        if payload.when.weekday() not in booking.time_slot.weekdays:
             raise TimeSlotNotFoundError()
         booking.when = payload.when
     await session.commit()
@@ -611,14 +576,17 @@ async def guest_update_booking(
         start_datetime = datetime.combine(booking.when, booking.time_slot.start_time)
         end_datetime = datetime.combine(booking.when, booking.time_slot.end_time)
 
-        await service.update_event(
-            event_id=booking.google_event_id,
-            start_datetime=start_datetime.astimezone(timezone.utc),
-            end_datetime=end_datetime.astimezone(timezone.utc),
-            summary=booking.topic,
-            description=booking.description,
-            google_calendar_id=booking.time_slot.calendar.google_calendar_id,
-        )
+        async def _update_google_calendar_event():
+            await service.update_event(
+                event_id=booking.google_event_id,
+                start_datetime=start_datetime.astimezone(timezone.utc),
+                end_datetime=end_datetime.astimezone(timezone.utc),
+                summary=booking.topic,
+                description=booking.description,
+                google_calendar_id=booking.time_slot.calendar.google_calendar_id,
+            )
+            
+        background_tasks.add_task(_update_google_calendar_event)
     
     return booking
 
@@ -645,7 +613,7 @@ async def update_booking_status(
         .where(TimeSlot.calendar_id == user.calendar.id)
     )
     result = await session.execute(stmt)
-    booking = result.unique().scalar_one_or_none()
+    booking = result.scalar_one_or_none()
     if booking is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="예약 내역이 없습니다.")
     
@@ -668,6 +636,7 @@ async def cancel_guest_booking(
     booking_id: int,
     now: UtcNow,
     service: GoogleCalendarServiceDep,
+    background_tasks: BackgroundTasks,
 ) -> None:
     stmt = (
         select(Booking)
@@ -675,7 +644,7 @@ async def cancel_guest_booking(
         .where(Booking.guest_id == user.id)
     )
     result = await session.execute(stmt)
-    booking = result.unique().scalar_one_or_none()
+    booking = result.scalar_one_or_none()
     if booking is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="예약 내역이 없습니다.")
 
@@ -688,8 +657,11 @@ async def cancel_guest_booking(
         await session.refresh(booking)
 
     if booking.google_event_id:
-        await service.delete_event(booking.google_event_id, booking.time_slot.calendar.google_calendar_id)
-
+        async def _cancel_google_calendar_event():
+            await service.delete_event(booking.google_event_id, booking.time_slot.calendar.google_calendar_id)
+            
+        background_tasks.add_task(_cancel_google_calendar_event)
+ 
     return None
 
 
@@ -711,7 +683,7 @@ async def upload_booking_files(
         .where(Booking.guest_id == user.id)
     )
     result = await session.execute(stmt)
-    booking = result.unique().scalar_one_or_none()
+    booking = result.scalar_one_or_none()
     if booking is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="예약 내역이 없습니다.")
     
