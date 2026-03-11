@@ -2,6 +2,7 @@ import asyncio
 import calendar
 from typing import Annotated
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from fastapi import APIRouter, BackgroundTasks, File, UploadFile, status, Query, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlmodel import select, and_, func, true, extract
@@ -46,6 +47,8 @@ from .schemas import (
     TimeSlotOut,
 )
 
+
+KST = ZoneInfo("Asia/Seoul")
 
 router = APIRouter()
 
@@ -378,13 +381,21 @@ async def create_booking(
     await session.commit()
     await session.refresh(booking, ["files", "time_slot"])
 
-    start_datetime = datetime.combine(booking.when, time_slot.start_time)
-    end_datetime = datetime.combine(booking.when, time_slot.end_time)
+    start_datetime = datetime.combine(
+        booking.when,
+        time_slot.start_time,
+        tzinfo=KST,
+    )
+    end_datetime = datetime.combine(
+        booking.when,
+        time_slot.end_time,
+        tzinfo=KST,
+    )
 
     async def _apply_event_id():
         event = await service.create_event(
-            start_datetime=start_datetime.astimezone(timezone.utc),
-            end_datetime=end_datetime.astimezone(timezone.utc),
+            start_datetime=start_datetime,
+            end_datetime=end_datetime,
             summary=booking.topic,
             description=booking.description,
             google_calendar_id=host.calendar.google_calendar_id,
@@ -503,15 +514,23 @@ async def host_update_booking(
     await session.commit()
     await session.refresh(booking)
  
-    start_datetime = datetime.combine(booking.when, booking.time_slot.start_time)
-    end_datetime = datetime.combine(booking.when, booking.time_slot.end_time)
+    start_datetime = datetime.combine(
+        booking.when,
+        booking.time_slot.start_time,
+        tzinfo=KST,
+    )
+    end_datetime = datetime.combine(
+        booking.when,
+        booking.time_slot.end_time,
+        tzinfo=KST,
+    )
 
     if booking.google_event_id:
         async def _update_google_calendar_event():
             await service.update_event(
                 event_id=booking.google_event_id,
-                start_datetime=start_datetime.astimezone(timezone.utc),
-                end_datetime=end_datetime.astimezone(timezone.utc),
+                start_datetime=start_datetime,
+                end_datetime=end_datetime,
                 summary=booking.topic,
                 description=booking.description,
                 google_calendar_id=user.calendar.google_calendar_id,
@@ -573,14 +592,22 @@ async def guest_update_booking(
     await session.refresh(booking)
 
     if booking.google_event_id:
-        start_datetime = datetime.combine(booking.when, booking.time_slot.start_time)
-        end_datetime = datetime.combine(booking.when, booking.time_slot.end_time)
+        start_datetime = datetime.combine(
+            booking.when,
+            booking.time_slot.start_time,
+            tzinfo=KST,
+        )
+        end_datetime = datetime.combine(
+            booking.when,
+            booking.time_slot.end_time,
+            tzinfo=KST,
+        )
 
         async def _update_google_calendar_event():
             await service.update_event(
                 event_id=booking.google_event_id,
-                start_datetime=start_datetime.astimezone(timezone.utc),
-                end_datetime=end_datetime.astimezone(timezone.utc),
+                start_datetime=start_datetime,
+                end_datetime=end_datetime,
                 summary=booking.topic,
                 description=booking.description,
                 google_calendar_id=booking.time_slot.calendar.google_calendar_id,
