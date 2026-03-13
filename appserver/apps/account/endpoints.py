@@ -9,9 +9,10 @@ from .models import User
 from .exceptions import DuplicatedUsernameError, DuplicatedEmailError, PasswordMismatchError, UserNotFoundError
 from .schemas import LoginPayload, SignupPayload, UpdateUserPayload, UserDetailOut, UserOut
 from .utils import (
-    verify_password, 
-    create_access_token, 
-    ACCESS_TOKEN_EXPIRE_MINUTES
+    verify_password,
+    create_access_token,
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    hash_password,
 )
 from .deps import CurrentUserDep
 from .constants import AUTH_TOKEN_COOKIE_NAME
@@ -39,7 +40,13 @@ async def signup(payload: SignupPayload, session: DbSessionDep) -> User:
     if count > 0:
         raise DuplicatedUsernameError()
 
-    user = User.model_validate(payload, from_attributes=True)
+    # SignupPayload에는 평문 비밀번호가 있기 때문에 여기에서 해시 값을 생성해 User를 만든다.
+    user = User(
+        username=payload.username,
+        email=payload.email,
+        display_name=payload.display_name,
+        hashed_password=hash_password(payload.password),
+    )
 
     session.add(user)
     try:

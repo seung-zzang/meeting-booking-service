@@ -1,0 +1,1057 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <title>PuddingCamp 계정 관리</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #0f172a;
+        --card-bg: #020617;
+        --accent: #38bdf8;
+        --accent-soft: rgba(56, 189, 248, 0.1);
+        --border-subtle: rgba(148, 163, 184, 0.4);
+        --danger: #f97373;
+        --danger-soft: rgba(248, 113, 113, 0.1);
+        --text: #e5e7eb;
+        --muted: #9ca3af;
+        --radius-lg: 16px;
+        --radius-md: 10px;
+        --shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.75);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+          "Segoe UI", sans-serif;
+        background: radial-gradient(circle at top, #1d2537 0, #020617 55%, #000 100%);
+        color: var(--text);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+
+      .shell {
+        width: 100%;
+        max-width: 1120px;
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+        gap: 28px;
+        align-items: stretch;
+      }
+
+      @media (max-width: 900px) {
+        .shell {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+
+      .card {
+        background: radial-gradient(circle at top left, #111827 0, #020617 55%);
+        border-radius: 24px;
+        box-shadow: var(--shadow-soft);
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        padding: 24px 24px 20px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .card::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.18), transparent 60%);
+        opacity: 0.9;
+        pointer-events: none;
+      }
+
+      .card-inner {
+        position: relative;
+        z-index: 1;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.8);
+        border: 1px solid rgba(148, 163, 184, 0.7);
+        color: var(--muted);
+        font-size: 11px;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+
+      .badge-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: #4ade80;
+        box-shadow: 0 0 0 4px rgba(74, 222, 128, 0.35);
+      }
+
+      h1 {
+        margin: 16px 0 4px;
+        font-size: 26px;
+        letter-spacing: -0.03em;
+      }
+
+      .subtitle {
+        margin: 0 0 18px;
+        font-size: 14px;
+        color: var(--muted);
+      }
+
+      .pill-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 10px;
+      }
+
+      .pill {
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        font-size: 11px;
+        color: var(--muted);
+        background: rgba(15, 23, 42, 0.7);
+      }
+
+      .section-title {
+        margin: 10px 0 6px;
+        font-size: 13px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--muted);
+      }
+
+      .form-card {
+        margin-top: 8px;
+        border-radius: var(--radius-lg);
+        background: linear-gradient(145deg, #020617 0, #020617 40%, #020617 100%);
+        border: 1px solid rgba(148, 163, 184, 0.5);
+        padding: 18px 18px 14px;
+      }
+
+      .form-row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .field {
+        flex: 1 1 120px;
+        min-width: 0;
+      }
+
+      label {
+        display: block;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }
+
+      input[type="text"],
+      input[type="email"],
+      input[type="password"] {
+        width: 100%;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.55);
+        padding: 8px 12px;
+        background: rgba(15, 23, 42, 0.85);
+        color: var(--text);
+        font-size: 13px;
+        outline: none;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+      }
+
+      input::placeholder {
+        color: rgba(148, 163, 184, 0.7);
+      }
+
+      input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.65);
+        background: rgba(15, 23, 42, 0.95);
+      }
+
+      .btn-row {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      .btn {
+        border-radius: 999px;
+        border: none;
+        padding: 7px 14px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: linear-gradient(135deg, #0ea5e9, #38bdf8);
+        color: #0f172a;
+        box-shadow: 0 10px 30px rgba(56, 189, 248, 0.5);
+        transition: transform 0.1s ease, box-shadow 0.1s ease, filter 0.1s ease;
+      }
+
+      .btn span.icon {
+        font-size: 15px;
+      }
+
+      .btn:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.05);
+        box-shadow: 0 14px 40px rgba(56, 189, 248, 0.7);
+      }
+
+      .btn:active {
+        transform: translateY(0);
+        box-shadow: 0 4px 18px rgba(56, 189, 248, 0.6);
+      }
+
+      .btn-secondary {
+        background: rgba(15, 23, 42, 0.9);
+        border: 1px solid rgba(148, 163, 184, 0.65);
+        color: var(--text);
+        box-shadow: none;
+      }
+
+      .btn-secondary:hover {
+        border-color: var(--accent);
+        box-shadow: 0 10px 26px rgba(15, 23, 42, 0.9);
+      }
+
+      .btn-danger {
+        background: linear-gradient(135deg, #f97373, #fb7185);
+        color: #111827;
+        box-shadow: 0 10px 30px rgba(248, 113, 113, 0.55);
+      }
+
+      .btn-danger:hover {
+        box-shadow: 0 14px 40px rgba(248, 113, 113, 0.8);
+      }
+
+      .status {
+        margin-top: 10px;
+        font-size: 12px;
+        min-height: 16px;
+      }
+
+      .status span {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 9px;
+        border-radius: 999px;
+        border: 1px solid transparent;
+      }
+
+      .status-success span {
+        background: var(--accent-soft);
+        border-color: rgba(56, 189, 248, 0.7);
+        color: var(--accent);
+      }
+
+      .status-error span {
+        background: var(--danger-soft);
+        border-color: rgba(248, 113, 113, 0.7);
+        color: var(--danger);
+      }
+
+      .profile-card {
+        background: radial-gradient(circle at top right, rgba(56, 189, 248, 0.18), transparent 55%),
+          radial-gradient(circle at bottom left, rgba(59, 130, 246, 0.16), transparent 55%),
+          #020617;
+        border-radius: 24px;
+        padding: 22px;
+        border: 1px solid rgba(148, 163, 184, 0.45);
+        box-shadow: var(--shadow-soft);
+      }
+
+      .profile-header {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 12px;
+      }
+
+      .avatar {
+        width: 46px;
+        height: 46px;
+        border-radius: 18px;
+        background: radial-gradient(circle at 30% 20%, #38bdf8, #0f172a 60%, #000 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 18px;
+        color: #e5e7eb;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.9);
+      }
+
+      .profile-meta {
+        font-size: 13px;
+      }
+
+      .profile-meta-main {
+        font-weight: 600;
+      }
+
+      .profile-meta-sub {
+        color: var(--muted);
+        margin-top: 2px;
+      }
+
+      .profile-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 8px 0 10px;
+        font-size: 11px;
+      }
+
+      .tag {
+        padding: 3px 9px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.45);
+        background: rgba(15, 23, 42, 0.85);
+        color: var(--muted);
+      }
+
+      .tag-host {
+        border-color: rgba(74, 222, 128, 0.65);
+        color: #bbf7d0;
+        background: rgba(22, 163, 74, 0.18);
+      }
+
+      .profile-detail {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .profile-detail-row {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 4px;
+      }
+
+      .profile-detail-label {
+        opacity: 0.9;
+      }
+
+      .profile-detail-value {
+        color: var(--text);
+      }
+
+      .profile-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 14px;
+      }
+
+      .danger-zone {
+        margin-top: 16px;
+        border-radius: var(--radius-lg);
+        background: rgba(24, 24, 27, 0.9);
+        border: 1px solid rgba(248, 113, 113, 0.4);
+        padding: 10px 12px 10px;
+      }
+
+      .danger-title {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: rgba(248, 113, 113, 0.9);
+        margin-bottom: 4px;
+      }
+
+      .danger-desc {
+        font-size: 11px;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+
+      .link {
+        color: var(--accent);
+        text-decoration: none;
+        font-size: 12px;
+      }
+
+      .link:hover {
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="card">
+        <div class="card-inner">
+          <div class="badge">
+            <span class="badge-dot"></span>
+            ACCOUNT · PuddingCamp
+          </div>
+          <h1>계정 만들기 · 수정하기</h1>
+          <p class="subtitle">
+            새 계정을 만들거나, 이메일 · 비밀번호 · 표시 이름을 수정할 수 있어요.
+          </p>
+
+          <div class="pill-row">
+            <span class="pill">회원가입</span>
+            <span class="pill">내 정보 수정</span>
+            <span class="pill">로그아웃</span>
+            <span class="pill">회원탈퇴</span>
+          </div>
+
+          <h2 class="section-title">Login · 로그인</h2>
+          <form id="login-form" class="form-card" autocomplete="off">
+            <div class="form-row">
+              <div class="field">
+                <label for="login-username">아이디</label>
+                <input
+                  id="login-username"
+                  name="username"
+                  type="text"
+                  minlength="4"
+                  maxlength="40"
+                  placeholder="puddingfan"
+                  required
+                />
+              </div>
+              <div class="field">
+                <label for="login-password">비밀번호</label>
+                <input
+                  id="login-password"
+                  name="password"
+                  type="password"
+                  minlength="8"
+                  maxlength="128"
+                  required
+                />
+              </div>
+            </div>
+            <div class="btn-row">
+              <button type="submit" class="btn-secondary btn">
+                <span class="icon">🔑</span>
+                <span>로그인</span>
+              </button>
+            </div>
+            <div id="login-status" class="status"></div>
+          </form>
+
+          <h2 class="section-title">Sign up · 회원가입</h2>
+          <form id="signup-form" class="form-card" autocomplete="off">
+            <div class="form-row">
+              <div class="field">
+                <label for="signup-username">아이디</label>
+                <input
+                  id="signup-username"
+                  name="username"
+                  type="text"
+                  minlength="4"
+                  maxlength="40"
+                  placeholder="puddingfan"
+                  required
+                />
+              </div>
+              <div class="field">
+                <label for="signup-email">이메일</label>
+                <input
+                  id="signup-email"
+                  name="email"
+                  type="email"
+                  maxlength="128"
+                  placeholder="you@example.com"
+                  required
+                />
+              </div>
+            </div>
+            <div class="form-row" style="margin-top: 8px">
+              <div class="field">
+                <label for="signup-display-name">표시 이름</label>
+                <input
+                  id="signup-display-name"
+                  name="display_name"
+                  type="text"
+                  minlength="4"
+                  maxlength="40"
+                  placeholder="캠프러"
+                />
+              </div>
+            </div>
+            <div class="form-row" style="margin-top: 8px">
+              <div class="field">
+                <label for="signup-password">비밀번호</label>
+                <input
+                  id="signup-password"
+                  name="password"
+                  type="password"
+                  minlength="8"
+                  maxlength="128"
+                  required
+                />
+              </div>
+              <div class="field">
+                <label for="signup-password-again">비밀번호 확인</label>
+                <input
+                  id="signup-password-again"
+                  name="password_again"
+                  type="password"
+                  minlength="8"
+                  maxlength="128"
+                  required
+                />
+              </div>
+            </div>
+            <div class="btn-row">
+              <button type="submit" class="btn">
+                <span class="icon">✨</span>
+                <span>회원가입</span>
+              </button>
+            </div>
+            <div id="signup-status" class="status"></div>
+          </form>
+
+          <h2 class="section-title">Update · 내 정보 수정</h2>
+          <form id="update-form" class="form-card" autocomplete="off">
+            <div class="form-row">
+              <div class="field">
+                <label for="update-display-name">표시 이름</label>
+                <input
+                  id="update-display-name"
+                  name="display_name"
+                  type="text"
+                  minlength="4"
+                  maxlength="40"
+                  placeholder="새 표시 이름"
+                />
+              </div>
+              <div class="field">
+                <label for="update-email">이메일</label>
+                <input
+                  id="update-email"
+                  name="email"
+                  type="email"
+                  maxlength="128"
+                  placeholder="새 이메일"
+                />
+              </div>
+            </div>
+            <div class="form-row" style="margin-top: 8px">
+              <div class="field">
+                <label for="update-password">새 비밀번호</label>
+                <input
+                  id="update-password"
+                  name="password"
+                  type="password"
+                  minlength="8"
+                  maxlength="128"
+                  placeholder="원하지 않으면 비워 두세요"
+                />
+              </div>
+              <div class="field">
+                <label for="update-password-again">비밀번호 확인</label>
+                <input
+                  id="update-password-again"
+                  name="password_again"
+                  type="password"
+                  minlength="8"
+                  maxlength="128"
+                  placeholder="새 비밀번호 다시 입력"
+                />
+              </div>
+            </div>
+            <div class="btn-row">
+              <button type="submit" class="btn-secondary btn">
+                <span class="icon">💾</span>
+                <span>내 정보 수정</span>
+              </button>
+            </div>
+            <div id="update-status" class="status"></div>
+          </form>
+        </div>
+      </section>
+
+      <section class="profile-card">
+        <div class="profile-header">
+          <div id="avatar" class="avatar">PC</div>
+          <div class="profile-meta">
+            <div id="profile-main" class="profile-meta-main">로그인 필요</div>
+            <div id="profile-sub" class="profile-meta-sub">
+              계정 정보를 보려면 로그인해 주세요.
+            </div>
+          </div>
+        </div>
+
+        <div id="profile-tags" class="profile-tags" style="display: none"></div>
+
+        <div id="profile-detail" class="profile-detail" style="display: none">
+          <div class="profile-detail-row">
+            <span class="profile-detail-label">아이디</span>
+            <span id="detail-username" class="profile-detail-value"></span>
+          </div>
+          <div class="profile-detail-row">
+            <span class="profile-detail-label">이메일</span>
+            <span id="detail-email" class="profile-detail-value"></span>
+          </div>
+        </div>
+
+        <div class="profile-actions">
+          <button id="logout-btn" type="button" class="btn-secondary btn">
+            <span class="icon">🚪</span>
+            <span>로그아웃</span>
+          </button>
+        </div>
+
+        <div class="danger-zone">
+          <div class="danger-title">Danger Zone · 주의</div>
+          <div class="danger-desc">
+            회원 탈퇴를 하면 모든 약속 정보와 계정이 삭제되며, 복구할 수 없습니다.
+          </div>
+          <div class="btn-row" style="justify-content: flex-start; margin-top: 4px">
+            <button id="unregister-btn" type="button" class="btn-danger btn">
+              <span class="icon">⚠️</span>
+              <span>회원 탈퇴</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="profile-status" class="status" style="margin-top: 10px"></div>
+
+        <p style="margin-top: 14px; font-size: 11px; color: var(--muted)">
+          이미 로그인 페이지를 사용하고 있다면,
+          <a href="/app/login" class="link">/app/login</a> 에서 로그인 후 이 화면을
+          새로고침하면 내 정보가 표시됩니다.
+        </p>
+      </section>
+    </main>
+
+    <script>
+      // 백엔드 FastAPI 서버 주소
+      // - 로컬 개발에서 정적 파일을 3000/5173 등으로 띄우고
+      //   API 서버는 8000에서 동작하는 경우를 자동으로 감지
+      // - 배포 환경에서는 동일 오리진(같은 도메인/포트)의 백엔드를 기본값으로 사용
+      const { origin, hostname, port } = window.location;
+      let API_BASE = origin;
+      if (
+        hostname === "localhost" &&
+        (port === "3000" || port === "5173" || port === "4173")
+      ) {
+        API_BASE = "http://localhost:8000";
+      }
+
+      let authToken = window.localStorage.getItem("auth_token") || null;
+
+      function setAuthToken(token) {
+        authToken = token || null;
+        try {
+          if (token) {
+            window.localStorage.setItem("auth_token", token);
+          } else {
+            window.localStorage.removeItem("auth_token");
+          }
+        } catch {
+          // localStorage 사용 불가한 환경은 무시
+        }
+      }
+
+      function authHeaders(extra = {}) {
+        const headers = { ...extra };
+        if (authToken) {
+          headers["Authorization"] = `Bearer ${authToken}`;
+        }
+        return headers;
+      }
+      async function handleLogin(event) {
+        event.preventDefault();
+        const statusEl = document.getElementById("login-status");
+
+        const username = document.getElementById("login-username").value.trim();
+        const password = document.getElementById("login-password").value;
+
+        if (!username || !password) {
+          setStatus(statusEl, "아이디와 비밀번호를 모두 입력해 주세요.", "error");
+          return;
+        }
+
+        try {
+          setStatus(statusEl, "로그인 중...", "success");
+          const res = await fetch(API_BASE + "/account/login", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ username, password }),
+            credentials: "include",
+          });
+
+          const text = await res.text();
+          let data = null;
+          try {
+            data = text ? JSON.parse(text) : null;
+          } catch {
+            data = null;
+          }
+
+          if (!res.ok) {
+            const detail =
+              (data && (data.detail || data.message)) ||
+              `오류 코드: ${res.status}`;
+            setStatus(statusEl, `로그인 실패 · ${detail}`, "error");
+            setAuthToken(null);
+            return;
+          }
+
+          if (data && data.access_token) {
+            setAuthToken(data.access_token);
+          }
+
+          setStatus(statusEl, "로그인되었습니다.", "success");
+          await loadProfile();
+        } catch (err) {
+          console.error(err);
+          setStatus(
+            statusEl,
+            "로그인 중 오류가 발생했습니다.",
+            "error"
+          );
+        }
+      }
+
+
+      function setStatus(el, message, type) {
+        if (!el) return;
+        el.textContent = "";
+        if (!message) return;
+        const span = document.createElement("span");
+        span.textContent = message;
+        el.classList.remove("status-success", "status-error");
+        if (type === "success") {
+          el.classList.add("status-success");
+        } else if (type === "error") {
+          el.classList.add("status-error");
+        }
+        el.appendChild(span);
+      }
+
+      async function handleSignup(event) {
+        event.preventDefault();
+        const statusEl = document.getElementById("signup-status");
+
+        const username = document.getElementById("signup-username").value.trim();
+        const email = document.getElementById("signup-email").value.trim();
+        const displayName = document
+          .getElementById("signup-display-name")
+          .value.trim();
+        const password = document.getElementById("signup-password").value;
+        const passwordAgain = document.getElementById(
+          "signup-password-again"
+        ).value;
+
+        if (password !== passwordAgain) {
+          setStatus(statusEl, "비밀번호가 서로 일치하지 않습니다.", "error");
+          return;
+        }
+
+        try {
+          setStatus(statusEl, "회원가입 중...", "success");
+          const res = await fetch(API_BASE + "/account/signup", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              username,
+              email,
+              display_name: displayName || null,
+              password,
+              password_again: passwordAgain,
+            }),
+          });
+
+          const text = await res.text();
+          let data = null;
+          try {
+            data = text ? JSON.parse(text) : null;
+          } catch {
+            data = null;
+          }
+
+          if (!res.ok) {
+            const detail =
+              (data && (data.detail || data.message)) ||
+              `오류 코드: ${res.status}`;
+            setStatus(statusEl, `회원가입 실패 · ${detail}`, "error");
+            return;
+          }
+
+          setStatus(statusEl, "회원가입이 완료되었습니다. 이제 로그인해 주세요.", "success");
+        } catch (err) {
+          console.error(err);
+          setStatus(
+            statusEl,
+            "회원가입 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.",
+            "error"
+          );
+        }
+      }
+
+      async function loadProfile() {
+        const mainEl = document.getElementById("profile-main");
+        const subEl = document.getElementById("profile-sub");
+        const avatarEl = document.getElementById("avatar");
+        const tagsEl = document.getElementById("profile-tags");
+        const detailEl = document.getElementById("profile-detail");
+        const usernameEl = document.getElementById("detail-username");
+        const emailEl = document.getElementById("detail-email");
+        const profileStatus = document.getElementById("profile-status");
+
+        try {
+          setStatus(profileStatus, "내 정보를 불러오는 중...", "success");
+          const res = await fetch(API_BASE + "/account/@me", {
+            method: "GET",
+            credentials: "include",
+            headers: authHeaders(),
+          });
+
+          if (res.status === 401 || res.status === 403) {
+            mainEl.textContent = "로그인 필요";
+            subEl.textContent = "로그인 후 내 정보를 확인할 수 있어요.";
+            avatarEl.textContent = "PC";
+            tagsEl.style.display = "none";
+            detailEl.style.display = "none";
+            setStatus(profileStatus, "로그인이 필요합니다.", "error");
+            return;
+          }
+
+          const data = await res.json();
+
+          mainEl.textContent = data.display_name || data.username;
+          subEl.textContent = data.email;
+
+          const initial = (data.display_name || data.username || "PC")
+            .toString()
+            .trim()
+            .charAt(0)
+            .toUpperCase();
+          avatarEl.textContent = initial || "PC";
+
+          usernameEl.textContent = data.username;
+          emailEl.textContent = data.email;
+          detailEl.style.display = "block";
+
+          tagsEl.innerHTML = "";
+          const createdAt = data.created_at && new Date(data.created_at);
+          const isHostTag = document.createElement("span");
+          isHostTag.className = "tag tag-host";
+          isHostTag.textContent = data.is_host ? "호스트 계정" : "게스트 계정";
+          tagsEl.appendChild(isHostTag);
+
+          if (createdAt && !isNaN(createdAt.getTime())) {
+            const createdTag = document.createElement("span");
+            createdTag.className = "tag";
+            createdTag.textContent = `가입일 · ${createdAt.toLocaleDateString(
+              "ko-KR"
+            )}`;
+            tagsEl.appendChild(createdTag);
+          }
+
+          tagsEl.style.display = "flex";
+          setStatus(profileStatus, "내 정보를 불러왔습니다.", "success");
+        } catch (err) {
+          console.error(err);
+          setStatus(
+            profileStatus,
+            "내 정보를 불러오는 중 오류가 발생했습니다.",
+            "error"
+          );
+        }
+      }
+
+      async function handleUpdate(event) {
+        event.preventDefault();
+        const statusEl = document.getElementById("update-status");
+
+        const displayName = document
+          .getElementById("update-display-name")
+          .value.trim();
+        const email = document.getElementById("update-email").value.trim();
+        const password = document.getElementById("update-password").value;
+        const passwordAgain = document.getElementById(
+          "update-password-again"
+        ).value;
+
+        const payload = {};
+        if (displayName) payload.display_name = displayName;
+        if (email) payload.email = email;
+        if (password || passwordAgain) {
+          if (password !== passwordAgain) {
+            setStatus(statusEl, "새 비밀번호가 서로 일치하지 않습니다.", "error");
+            return;
+          }
+          payload.password = password;
+          payload.password_again = passwordAgain;
+        }
+
+        if (Object.keys(payload).length === 0) {
+          setStatus(
+            statusEl,
+            "최소 하나 이상의 수정할 값을 입력해 주세요.",
+            "error"
+          );
+          return;
+        }
+
+        try {
+          setStatus(statusEl, "내 정보를 수정하는 중...", "success");
+          const res = await fetch(API_BASE + "/account/@me", {
+            method: "PATCH",
+            credentials: "include",
+            headers: authHeaders({
+              "Content-Type": "application/json",
+            }),
+            body: JSON.stringify(payload),
+          });
+
+          const text = await res.text();
+          let data = null;
+          try {
+            data = text ? JSON.parse(text) : null;
+          } catch {
+            data = null;
+          }
+
+          if (!res.ok) {
+            const detail =
+              (data && (data.detail || data.message)) ||
+              `오류 코드: ${res.status}`;
+            setStatus(statusEl, `수정 실패 · ${detail}`, "error");
+            return;
+          }
+
+          setStatus(statusEl, "내 정보가 수정되었습니다.", "success");
+          document.getElementById("update-password").value = "";
+          document.getElementById("update-password-again").value = "";
+          await loadProfile();
+        } catch (err) {
+          console.error(err);
+          setStatus(
+            statusEl,
+            "내 정보 수정 중 오류가 발생했습니다.",
+            "error"
+          );
+        }
+      }
+
+      async function handleLogout() {
+        const statusEl = document.getElementById("profile-status");
+        try {
+          setStatus(statusEl, "로그아웃 중...", "success");
+          const res = await fetch(API_BASE + "/account/logout", {
+            method: "DELETE",
+            credentials: "include",
+            headers: authHeaders(),
+          });
+          if (res.status === 401 || res.status === 403) {
+            // 이미 로그인되어 있지 않은 상태라면, UX 관점에서는 "로그아웃 완료"로 간주
+            setStatus(statusEl, "이미 로그아웃된 상태입니다.", "success");
+            setAuthToken(null);
+            await loadProfile();
+            return;
+          }
+          if (!res.ok) {
+            setStatus(
+              statusEl,
+              `로그아웃 실패 · 오류 코드: ${res.status}`,
+              "error"
+            );
+            return;
+          }
+          setStatus(statusEl, "로그아웃되었습니다.", "success");
+          setAuthToken(null);
+          await loadProfile();
+        } catch (err) {
+          console.error(err);
+          setStatus(
+            statusEl,
+            "로그아웃 중 오류가 발생했습니다.",
+            "error"
+          );
+        }
+      }
+
+      async function handleUnregister() {
+        const statusEl = document.getElementById("profile-status");
+        const confirmed = window.confirm(
+          "정말로 회원 탈퇴하시겠습니까?\n모든 정보가 삭제되며, 되돌릴 수 없습니다."
+        );
+        if (!confirmed) return;
+
+        try {
+          setStatus(statusEl, "회원 탈퇴 중...", "success");
+          const res = await fetch(API_BASE + "/account/unregister", {
+            method: "DELETE",
+            credentials: "include",
+            headers: authHeaders(),
+          });
+          if (!res.ok) {
+            setStatus(
+              statusEl,
+              `회원 탈퇴 실패 · 오류 코드: ${res.status}`,
+              "error"
+            );
+            return;
+          }
+          setStatus(
+            statusEl,
+            "회원 탈퇴가 완료되었습니다. 이제 이 계정으로는 로그인할 수 없습니다.",
+            "success"
+          );
+          await loadProfile();
+        } catch (err) {
+          console.error(err);
+          setStatus(
+            statusEl,
+            "회원 탈퇴 중 오류가 발생했습니다.",
+            "error"
+          );
+        }
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        const loginForm = document.getElementById("login-form");
+        const signupForm = document.getElementById("signup-form");
+        if (loginForm) loginForm.addEventListener("submit", handleLogin);
+        const updateForm = document.getElementById("update-form");
+        const logoutBtn = document.getElementById("logout-btn");
+        const unregisterBtn = document.getElementById("unregister-btn");
+
+        if (signupForm) signupForm.addEventListener("submit", handleSignup);
+        if (updateForm) updateForm.addEventListener("submit", handleUpdate);
+        if (logoutBtn) logoutBtn.addEventListener("click", handleLogout);
+        if (unregisterBtn)
+          unregisterBtn.addEventListener("click", handleUnregister);
+
+        loadProfile();
+      });
+    </script>
+  </body>
+</html>
+

@@ -37,9 +37,8 @@ async def get_current_user(
     db_session: DbSessionDep,
 ):
     raw_auth_token = request.cookies.get("auth_token") or request.headers.get("Authorization")
-    if raw_auth_token is None:
+    if not raw_auth_token:
         raise AuthNotProvidedError()
-    
     *__, auth_token = raw_auth_token.split(" ")
     user = await get_user(auth_token, db_session)
     if user is None:

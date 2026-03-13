@@ -2,6 +2,7 @@ import os
 from markupsafe import Markup
 from sqladmin import ModelView
 from datetime import datetime
+from sqlalchemy import String
 from sqlmodel import Unicode, or_, cast, union
 from sqlalchemy.sql.expression import Select, select
 from appserver.db import engine
