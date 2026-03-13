@@ -134,8 +134,13 @@ class Booking(SQLModel, table=True):
 
     files: list["BookingFile"] = Relationship(
         back_populates="booking",
-        sa_relationship_kwargs={"lazy":"joined"},
-        )
+        sa_relationship_kwargs={
+            "lazy": "joined",
+            # 부킹을 삭제할 때 관련 첨부파일도 함께 삭제하고,
+            # 더 이상 어떤 부킹에도 속하지 않는 BookingFile은 고아 레코드로 남지 않도록 설정
+            "cascade": "all, delete-orphan",
+        },
+    )
 
     google_event_id: str | None = Field(
         max_length=64,
